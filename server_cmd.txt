@@ -1,0 +1,28 @@
+cd /root/member_management_backend
+source venv/bin/activate
+DJANGO_ENV=production python manage.py migrate
+DJANGO_ENV=production python manage.py collectstatic --noinput
+systemctl restart member.service
+
+# Logs
+tail -f /var/log/member/gunicorn-error.log
+journalctl -u member.service --no-pager -n 30
+
+#frontend 
+pm2 restart member_management
+
+
+#celery
+systemctl restart member-celery.service
+systemctl restart member-celerybeat.service
+
+# Check errors
+journalctl -u member-celery.service --no-pager -n 30
+journalctl -u member-celerybeat.service --no-pager -n 30
+
+
+# Worker live Logs
+tail -f /var/log/member/celery-worker.log
+
+# Beat live Logs
+tail -f /var/log/member/celery-beat.log
