@@ -1,0 +1,26 @@
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path("v1/outlets/", views.OutletView.as_view(), name="outlets"),
+    path("v1/outlets/categories/", views.OutletItemCategoryView.as_view(),
+         name="outlet_categories"),
+    path("v1/outlets/items/", views.OutletItemView.as_view(), name="outlet_items"),
+    path("v1/outlets/cross-rules/", views.CrossOrderingRuleView.as_view(),
+         name="outlet_cross_rules"),
+    path("v1/outlets/orders/", views.OutletOrderView.as_view(), name="outlet_orders"),
+    path("v1/outlets/orders/<int:order_id>/verify-otp/",
+         views.VerifyOutletOtpView.as_view(), name="outlet_order_verify_otp"),
+    path("v1/outlets/kitchen/orders/", views.OutletKitchenView.as_view(),
+         name="outlet_kitchen_orders"),
+    path("v1/outlets/kitchen/orders/<int:order_id>/status/",
+         views.OutletKitchenView.as_view(), name="outlet_kitchen_order_status"),
+    path("v1/outlets/orders/<int:order_id>/bill/",
+         views.BillOutletOrderView.as_view(), name="outlet_order_bill"),
+    path("v1/outlets/inventory/items/", views.OutletInventoryItemView.as_view(),
+         name="outlet_inventory_items"),
+    path("v1/outlets/inventory/movements/", views.OutletInventoryMovementView.as_view(),
+         name="outlet_inventory_movements"),
+    path("v1/outlets/items/recipes/", views.OutletItemRecipeView.as_view(),
+         name="outlet_item_recipes"),
+]

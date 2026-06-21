@@ -108,3 +108,67 @@ class EventFee(EventBaseModel):
 
     def __str__(self):
         return str(self.fee)
+
+
+# ============================================================
+# EVENT COST / FOOD TRACKING (added for club management)
+# Tracks what each event spends — food, logistics, talent, etc. — so an
+# event's profitability (ticket income vs. expense) can be reported.
+# ============================================================
+class EventExpenseCategory(EventBaseModel):
+    name = models.CharField(max_length=200, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
+class EventExpense(EventBaseModel):
+    EXPENSE_KIND_CHOICES = [
+        ("food", "food"),
+        ("logistics", "logistics"),
+        ("talent", "talent"),
+        ("decoration", "decoration"),
+        ("marketing", "marketing"),
+        ("other", "other"),
+    ]
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="expenses")
+    category = models.ForeignKey(
+        EventExpenseCategory, on_delete=models.PROTECT, blank=True, null=True,
+        default=None, related_name="expenses")
+    kind = models.CharField(
+        max_length=20, choices=EXPENSE_KIND_CHOICES, default="other")
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    quantity = models.DecimalField(max_digits=12, decimal_places=2, default=1)
+    unit_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    amount = models.DecimalField(
+        max_digits=12, decimal_places=2,
+        help_text="Total cost of this expense line")
+
+    def save(self, *args, **kwargs):
+        # auto-compute amount when quantity*unit_cost provided and amount unset
+        if (not self.amount or self.amount == 0) and self.unit_cost:
+            self.amount = self.quantity * self.unit_cost
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.title} ({self.event.title})"
+
+
+class EventFoodItem(EventBaseModel):
+    """Specific food items planned/managed for an event."""
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="food_items")
+    name = models.CharField(max_length=255)
+    quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    unit = models.CharField(max_length=50, blank=True, default="")
+    estimated_cost = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0)
+    # optionally link the actual expense once incurred
+    expense = models.ForeignKey(
+        EventExpense, on_delete=models.SET_NULL, blank=True, null=True,
+        default=None, related_name="food_items")
+
+    def __str__(self):
+        return f"{self.name} for {self.event.title}"

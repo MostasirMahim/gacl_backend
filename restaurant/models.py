@@ -91,3 +91,199 @@ class RestaurantItemMedia(RestaurantBaseModel):
 
     def __str__(self):
         return self.item.name
+
+
+# ============================================================
+# ORDERING + KITCHEN FLOW + INVENTORY (added for club management)
+# ============================================================
+from django.conf import settings
+from django.utils import timezone
+
+
+class SpicyLevel(RestaurantBaseModel):
+    """Selectable spice levels e.g. Mild / Medium / Hot / Extra Hot."""
+    name = models.CharField(max_length=100, unique=True)
+    rank = models.PositiveSmallIntegerField(
+        default=0, help_text="Lower = milder, used for ordering in UI")
+
+    objects = models.Manager()
+    active_objects = ActiveManager()
+
+    class Meta:
+        ordering = ["rank"]
+
+    def __str__(self):
+        return self.name
+
+
+# Extend RestaurantItem capabilities without touching the original class body.
+# An item may disable spicy selection (restaurant admin choice at menu-post time)
+# and may be flagged for public (show) menu visibility.
+class RestaurantItemSetting(RestaurantBaseModel):
+    item = models.OneToOneField(
+        RestaurantItem, on_delete=models.CASCADE, related_name="setting")
+    spicy_selectable = models.BooleanField(
+        default=False,
+        help_text="If False, members cannot pick a spicy level for this item")
+    is_public_show = models.BooleanField(
+        default=False,
+        help_text="If True, appears on the public 'show' menu the admin posts")
+
+    def __str__(self):
+        return f"settings::{self.item.name}"
+
+
+class RestaurantOrder(RestaurantBaseModel):
+    """A member (or guest under a member, or waiter-on-behalf) order."""
+    ORDER_STATUS_CHOICES = [
+        ("pending_otp", "pending_otp"),     # created, waiting OTP confirm
+        ("confirmed", "confirmed"),         # OTP confirmed -> goes to kitchen
+        ("preparing", "preparing"),         # kitchen accepted / cooking
+        ("ready", "ready"),                 # cooked, ready to serve
+        ("served", "served"),               # delivered to room/table
+        ("billed", "billed"),               # invoice generated
+        ("cancelled", "cancelled"),
+    ]
+    SERVE_LOCATION_CHOICES = [
+        ("room", "room"),           # deliver to a room number
+        ("restaurant", "restaurant"),  # serve in the restaurant itself
+    ]
+    PLACED_BY_CHOICES = [
+        ("member", "member"),       # member from own phone
+        ("waiter", "waiter"),       # waiter on behalf of member/guest
+    ]
+
+    order_number = models.CharField(max_length=60, unique=True, db_index=True)
+    status = models.CharField(
+        max_length=20, choices=ORDER_STATUS_CHOICES, default="pending_otp", db_index=True)
+    serve_location = models.CharField(
+        max_length=15, choices=SERVE_LOCATION_CHOICES, default="restaurant")
+    room_number = models.CharField(max_length=30, blank=True, default="")
+    placed_by = models.CharField(
+        max_length=15, choices=PLACED_BY_CHOICES, default="member")
+
+    sub_total = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0)
+    total_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0)
+    note = models.TextField(blank=True, default="")
+
+    # OTP confirmation
+    otp_code = models.CharField(max_length=6, blank=True, default="")
+    otp_verified = models.BooleanField(default=False)
+    otp_sent_at = models.DateTimeField(blank=True, null=True, default=None)
+    confirmed_at = models.DateTimeField(blank=True, null=True, default=None)
+
+    # relations
+    restaurant = models.ForeignKey(
+        Restaurant, on_delete=models.PROTECT, related_name="orders")
+    # The member the order is billed to (guest/family orders bill the host member)
+    member = models.ForeignKey(
+        "member.Member", on_delete=models.PROTECT, related_name="restaurant_orders")
+    # If the order is for a guest/family member rather than the member directly
+    guest = models.ForeignKey(
+        "attendance.Guest", on_delete=models.SET_NULL, blank=True, null=True,
+        default=None, related_name="restaurant_orders")
+    waiter = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
+        default=None, related_name="waiter_orders")
+    # linked invoice once billed
+    invoice = models.ForeignKey(
+        "member_financial_management.Invoice", on_delete=models.SET_NULL,
+        blank=True, null=True, default=None, related_name="restaurant_orders")
+
+    objects = models.Manager()
+    active_objects = ActiveManager()
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.order_number
+
+
+class RestaurantOrderItem(RestaurantBaseModel):
+    order = models.ForeignKey(
+        RestaurantOrder, on_delete=models.CASCADE, related_name="items")
+    item = models.ForeignKey(
+        RestaurantItem, on_delete=models.PROTECT, related_name="order_items")
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    spicy_level = models.ForeignKey(
+        SpicyLevel, on_delete=models.SET_NULL, blank=True, null=True, default=None,
+        related_name="order_items")
+    note = models.CharField(max_length=300, blank=True, default="")
+
+    def line_total(self):
+        return self.unit_price * self.quantity
+
+    def __str__(self):
+        return f"{self.item.name} x{self.quantity}"
+
+
+# ---------------- Inventory ----------------
+class RestaurantInventoryItem(RestaurantBaseModel):
+    """Stock-tracked raw products / consumables for a restaurant."""
+    name = models.CharField(max_length=300)
+    unit = models.CharField(max_length=50, help_text="e.g. kg, ltr, pcs")
+    current_quantity = models.DecimalField(
+        max_digits=12, decimal_places=3, default=0)
+    reorder_level = models.DecimalField(
+        max_digits=12, decimal_places=3, default=0,
+        help_text="Alert when stock falls to/below this")
+    unit_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    restaurant = models.ForeignKey(
+        Restaurant, on_delete=models.PROTECT, related_name="inventory_items")
+
+    objects = models.Manager()
+    active_objects = ActiveManager()
+
+    class Meta:
+        unique_together = ("name", "restaurant")
+
+    @property
+    def is_low(self):
+        return self.current_quantity <= self.reorder_level
+
+    def __str__(self):
+        return f"{self.name} ({self.restaurant.name})"
+
+
+class RestaurantInventoryTransaction(RestaurantBaseModel):
+    """Every stock movement: purchase (in) or consumption/wastage (out)."""
+    MOVEMENT_CHOICES = [
+        ("in", "in"),
+        ("out", "out"),
+    ]
+    inventory_item = models.ForeignKey(
+        RestaurantInventoryItem, on_delete=models.PROTECT, related_name="movements")
+    movement = models.CharField(max_length=3, choices=MOVEMENT_CHOICES)
+    quantity = models.DecimalField(max_digits=12, decimal_places=3)
+    reason = models.CharField(max_length=255, blank=True, default="")
+    # optional link to the order that consumed the stock
+    order = models.ForeignKey(
+        RestaurantOrder, on_delete=models.SET_NULL, blank=True, null=True,
+        default=None, related_name="inventory_movements")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
+        default=None, related_name="inventory_movements")
+
+    def __str__(self):
+        return f"{self.movement} {self.quantity} {self.inventory_item.name}"
+
+
+# Recipe mapping: how much inventory a menu item consumes (optional, enables auto-deduct)
+class RestaurantItemRecipe(RestaurantBaseModel):
+    item = models.ForeignKey(
+        RestaurantItem, on_delete=models.CASCADE, related_name="recipe_lines")
+    inventory_item = models.ForeignKey(
+        RestaurantInventoryItem, on_delete=models.PROTECT, related_name="used_in_recipes")
+    quantity_per_unit = models.DecimalField(
+        max_digits=12, decimal_places=3,
+        help_text="Inventory consumed per 1 unit of the menu item")
+
+    class Meta:
+        unique_together = ("item", "inventory_item")
+
+    def __str__(self):
+        return f"{self.item.name} -> {self.inventory_item.name}"

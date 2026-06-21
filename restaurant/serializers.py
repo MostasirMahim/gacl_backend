@@ -178,3 +178,112 @@ class RestaurantExcelUpload(serializers.Serializer):
             raise serializers.ValidationError(
                 "Only .xls and .xlsx files are allowed.")
         return value
+
+
+# ============================================================
+# ORDERING / SPICY / INVENTORY SERIALIZERS
+# ============================================================
+from .models import (
+    SpicyLevel, RestaurantItemSetting, RestaurantOrder, RestaurantOrderItem,
+    RestaurantInventoryItem, RestaurantInventoryTransaction, RestaurantItemRecipe,
+)
+
+
+class SpicyLevelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SpicyLevel
+        fields = ["id", "name", "rank", "is_active"]
+
+
+class RestaurantItemSettingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RestaurantItemSetting
+        fields = ["id", "item", "spicy_selectable", "is_public_show"]
+
+
+class OrderItemInputSerializer(serializers.Serializer):
+    item_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1, default=1)
+    spicy_level_id = serializers.IntegerField(required=False, allow_null=True)
+    note = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class CreateOrderSerializer(serializers.Serializer):
+    restaurant_id = serializers.IntegerField()
+    member_id = serializers.IntegerField()
+    guest_id = serializers.IntegerField(required=False, allow_null=True)
+    serve_location = serializers.ChoiceField(
+        choices=["restaurant", "room"], default="restaurant")
+    room_number = serializers.CharField(required=False, allow_blank=True, default="")
+    placed_by = serializers.ChoiceField(
+        choices=["member", "waiter"], default="member")
+    note = serializers.CharField(required=False, allow_blank=True, default="")
+    require_otp = serializers.BooleanField(default=True)
+    items = OrderItemInputSerializer(many=True)
+
+    def validate_items(self, value):
+        if not value:
+            raise serializers.ValidationError("At least one item is required.")
+        return value
+
+
+class VerifyOtpSerializer(serializers.Serializer):
+    otp_code = serializers.CharField(max_length=6)
+
+
+class KitchenStatusSerializer(serializers.Serializer):
+    target_status = serializers.ChoiceField(
+        choices=["preparing", "ready", "served", "cancelled"])
+
+
+class BillOrderSerializer(serializers.Serializer):
+    payment_mode = serializers.ChoiceField(
+        choices=["pos", "sslcommerz", "cash", "due"])
+    discount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, default=0)
+    tax = serializers.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+
+class RestaurantOrderItemViewSerializer(serializers.ModelSerializer):
+    item_name = serializers.CharField(source="item.name", read_only=True)
+    spicy_level_name = serializers.CharField(
+        source="spicy_level.name", read_only=True, default=None)
+
+    class Meta:
+        model = RestaurantOrderItem
+        fields = ["id", "item", "item_name", "quantity", "unit_price",
+                  "spicy_level", "spicy_level_name", "note"]
+
+
+class RestaurantOrderViewSerializer(serializers.ModelSerializer):
+    items = RestaurantOrderItemViewSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = RestaurantOrder
+        fields = ["id", "order_number", "status", "serve_location",
+                  "room_number", "placed_by", "sub_total", "total_amount",
+                  "note", "otp_verified", "restaurant", "member", "guest",
+                  "waiter", "invoice", "items", "created_at"]
+
+
+class RestaurantInventoryItemSerializer(serializers.ModelSerializer):
+    is_low = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = RestaurantInventoryItem
+        fields = ["id", "name", "unit", "current_quantity", "reorder_level",
+                  "unit_cost", "restaurant", "is_low", "is_active"]
+
+
+class RestaurantInventoryTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RestaurantInventoryTransaction
+        fields = ["id", "inventory_item", "movement", "quantity", "reason",
+                  "order", "created_by", "created_at"]
+        read_only_fields = ["created_by"]
+
+
+class RestaurantItemRecipeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RestaurantItemRecipe
+        fields = ["id", "item", "inventory_item", "quantity_per_unit"]

@@ -22,6 +22,12 @@ urlpatterns = [
     path('api/promo_code/', include('promo_code_app.urls')),
     path('api/mails/', include('mails.urls')),
     path('api/dashboard/', include('dashboard.urls')),
+    path('api/attendance/', include('attendance.urls')),
+    path('api/outlet/', include('outlet.urls')),
+    path('api/reservation/', include('reservation.urls')),
+    path('api/payroll/', include('payroll.urls')),
+    path('api/vendor/', include('vendor.urls')),
+    path('api/finance_core/', include('finance_core.urls')),
 
     path('api-auth/', include('rest_framework.urls')),
     path('silk/', include('silk.urls', namespace='silk')),

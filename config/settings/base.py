@@ -49,6 +49,12 @@ INSTALLED_APPS = [
     'promo_code_app',
     'mails',
     'dashboard',
+    'attendance',
+    'outlet',
+    'reservation',
+    'payroll',
+    'vendor',
+    'finance_core',
 ]
 
 # Middleware

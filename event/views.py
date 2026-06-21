@@ -770,3 +770,132 @@ class EventTicketBuyView(APIView):
                 'errors': {
                     'server_error': [str(e)]
                 }}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ===== EVENT EXPENSE / FOOD TRACKING VIEWS =====
+from event.models import EventExpenseCategory, EventExpense, EventFoodItem
+
+
+class EventExpenseView(APIView):
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated(), EventManagementPermission()]
+        return [IsAuthenticated()]
+
+    def get(self, request):
+        qs = EventExpense.objects.filter(is_active=True)
+        event_id = request.query_params.get("event_id")
+        if event_id:
+            qs = qs.filter(event_id=event_id)
+        return Response({
+            "code": 200, "status": "success", "message": "Event expenses",
+            "data": serializers.EventExpenseSerializer(qs, many=True).data,
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        s = serializers.EventExpenseSerializer(data=request.data)
+        if s.is_valid():
+            expense = s.save()
+            # mirror into the central expense ledger
+            try:
+                from finance_core.services.ledger_service import record_expense
+                record_expense(
+                    source_module="event", category_name="Event Cost",
+                    amount=expense.amount,
+                    description=f"{expense.title} ({expense.event.title})",
+                    reference_type="event_expense", reference_id=expense.id,
+                    created_by=request.user)
+            except Exception as exc:
+                logger.warning("Could not record event expense centrally: %s", exc)
+            return Response({
+                "code": 201, "status": "success", "message": "Expense recorded",
+                "data": serializers.EventExpenseSerializer(expense).data,
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            "code": 400, "status": "failed", "message": "Bad request",
+            "errors": s.errors,
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EventExpenseCategoryView(APIView):
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated(), EventManagementPermission()]
+        return [IsAuthenticated()]
+
+    def get(self, request):
+        qs = EventExpenseCategory.objects.filter(is_active=True)
+        return Response({
+            "code": 200, "status": "success", "message": "Categories",
+            "data": serializers.EventExpenseCategorySerializer(qs, many=True).data,
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        s = serializers.EventExpenseCategorySerializer(data=request.data)
+        if s.is_valid():
+            s.save()
+            return Response({
+                "code": 201, "status": "success", "message": "Category created",
+                "data": s.data,
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            "code": 400, "status": "failed", "message": "Bad request",
+            "errors": s.errors,
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EventFoodItemView(APIView):
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated(), EventManagementPermission()]
+        return [IsAuthenticated()]
+
+    def get(self, request):
+        qs = EventFoodItem.objects.filter(is_active=True)
+        event_id = request.query_params.get("event_id")
+        if event_id:
+            qs = qs.filter(event_id=event_id)
+        return Response({
+            "code": 200, "status": "success", "message": "Event food items",
+            "data": serializers.EventFoodItemSerializer(qs, many=True).data,
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        s = serializers.EventFoodItemSerializer(data=request.data)
+        if s.is_valid():
+            s.save()
+            return Response({
+                "code": 201, "status": "success", "message": "Food item added",
+                "data": s.data,
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            "code": 400, "status": "failed", "message": "Bad request",
+            "errors": s.errors,
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EventProfitabilityView(APIView):
+    """Ticket income vs. expenses for an event."""
+    permission_classes = [IsAuthenticated, EventManagementPermission]
+
+    def get(self, request, event_id):
+        from django.db.models import Sum
+        from decimal import Decimal
+        try:
+            event = Event.objects.get(id=event_id)
+        except Event.DoesNotExist:
+            return Response({"code": 404, "status": "failed",
+                             "message": "Event not found"}, status=status.HTTP_404_NOT_FOUND)
+        expense_total = (EventExpense.objects.filter(event=event, is_active=True)
+                         .aggregate(t=Sum("amount"))["t"] or Decimal("0"))
+        # income: invoices generated for this event that were paid
+        income_total = (Invoice.objects.filter(event=event, is_active=True)
+                        .aggregate(t=Sum("paid_amount"))["t"] or Decimal("0"))
+        return Response({
+            "code": 200, "status": "success", "message": "Event profitability",
+            "data": {
+                "event_id": event.id, "title": event.title,
+                "ticket_income": income_total, "total_expense": expense_total,
+                "net": income_total - expense_total,
+            },
+        }, status=status.HTTP_200_OK)

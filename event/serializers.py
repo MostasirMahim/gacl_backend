@@ -237,3 +237,27 @@ class EventTicketBuySerializer(serializers.Serializer):
         return promo_code
 
             
+
+# ===== EVENT EXPENSE / FOOD TRACKING SERIALIZERS =====
+from event.models import EventExpenseCategory, EventExpense, EventFoodItem
+
+
+class EventExpenseCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EventExpenseCategory
+        fields = ["id", "name", "is_active"]
+
+
+class EventExpenseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EventExpense
+        fields = ["id", "event", "category", "kind", "title", "description",
+                  "quantity", "unit_cost", "amount", "is_active"]
+        extra_kwargs = {"amount": {"required": False}}
+
+
+class EventFoodItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EventFoodItem
+        fields = ["id", "event", "name", "quantity", "unit", "estimated_cost",
+                  "expense", "is_active"]
