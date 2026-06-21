@@ -274,4 +274,8 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(minute=0, hour=0),  # Runs every day at 00:00
 
     },
+    "monthly-due-reminders": {
+        "task": "finance_core.tasks.send_monthly_due_reminders",
+        "schedule": crontab(minute=0, hour=9, day_of_month=28),  # 9am on the 28th
+    },
 }
