@@ -20,8 +20,14 @@ class Command(BaseCommand):
                 )
             else:
                 user = User.objects.get(username="admin")
-            all_permission_name = ["employee_onboarding", "group_permission_management", "activity_log_management",
-                                   "restaurant_management", "member_financial_management", "member_management", "promo_code_management", "event_management", "product_management", "facility_management", "view_all_users", "bulk_emails_management"]
+            all_permission_name = [
+                "employee_onboarding", "group_permission_management", "activity_log_management",
+                "restaurant_management", "member_financial_management", "member_management", 
+                "promo_code_management", "event_management", "product_management", 
+                "facility_management", "view_all_users", "bulk_emails_management",
+                "vendor_management", "payroll_management", "reservation_management",
+                "outlet_management", "attendance_management", "financial_management"
+            ]
             permissions = []
             for permission_name in all_permission_name:
                 if PermissonModel.objects.filter(name=permission_name).exists():

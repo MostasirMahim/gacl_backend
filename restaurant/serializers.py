@@ -61,6 +61,27 @@ class RestaurantViewSerializer(serializers.ModelSerializer):
         depth = 1
 
 
+class RestaurantUpdateSerializer(serializers.ModelSerializer):
+    """Used for PATCH/PUT update of a single restaurant (Bug 4.1)."""
+    class Meta:
+        model = Restaurant
+        exclude = ["is_active", "created_at", "updated_at"]
+        extra_kwargs = {f: {"required": False} for f in [
+            "name", "description", "address", "city", "state", "postal_code",
+            "phone", "operating_hours", "capacity", "status", "opening_time",
+            "closing_time", "booking_fees_per_seat", "cuisine_type",
+            "restaurant_type"]}
+
+    def validate_name(self, value):
+        qs = Restaurant.objects.filter(name=value)
+        if self.instance:
+            qs = qs.exclude(id=self.instance.id)
+        if qs.exists():
+            raise serializers.ValidationError(
+                f"Restaurant with name {value} already exists")
+        return value
+
+
 class RestaurantItemCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = RestaurantItemCategory
@@ -104,6 +125,16 @@ class RestaurantItemForViewSerializer(serializers.ModelSerializer):
         model = RestaurantItem
         fields = "__all__"
         depth = 1
+
+
+class RestaurantItemUpdateSerializer(serializers.ModelSerializer):
+    """PATCH update for a single restaurant item (Bug 4.2)."""
+    class Meta:
+        model = RestaurantItem
+        exclude = ["is_active", "created_at", "updated_at"]
+        extra_kwargs = {"restaurant": {"required": False},
+                        "category": {"required": False},
+                        "name": {"required": False}}
 
 
 class RestaurantItemMediaSerializer(serializers.Serializer):

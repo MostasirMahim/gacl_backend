@@ -300,7 +300,24 @@ class OutletInventoryItemView(APIView):
 
 
 class OutletInventoryMovementView(APIView):
-    permission_classes = [OutletManagementPermission]
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [OutletManagementPermission()]
+        return [IsAuthenticated()]
+
+    def get(self, request):
+        from .models import OutletInventoryTransaction
+        qs = OutletInventoryTransaction.objects.select_related(
+            "inventory_item").all().order_by("-created_at")
+        inv_id = request.query_params.get("inventory_item")
+        if inv_id:
+            qs = qs.filter(inventory_item_id=inv_id)
+        outlet_id = request.query_params.get("outlet_id")
+        if outlet_id:
+            qs = qs.filter(inventory_item__outlet_id=outlet_id)
+        qs = qs[:200]
+        data = serializers.OutletInventoryTransactionSerializer(qs, many=True).data
+        return Response(_envelope(200, "success", "Stock movements", data=data))
 
     @transaction.atomic
     def post(self, request):
@@ -332,3 +349,134 @@ class OutletItemRecipeView(APIView):
                             data=serializer.data), status=status.HTTP_201_CREATED)
         return Response(_envelope(400, "failed", "Bad request",
                         errors=serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+
+
+# ---------------------------------------------------------------
+# Detail views added for QA: outlet update, category update/delete,
+# item update/delete. These give the frontend full management ability.
+# ---------------------------------------------------------------
+class OutletDetailView(APIView):
+    def get_permissions(self):
+        if self.request.method in ("PATCH", "PUT", "DELETE"):
+            return [OutletManagementPermission()]
+        return [IsAuthenticated()]
+
+    def _get(self, pk):
+        try:
+            return Outlet.objects.get(id=pk)
+        except Outlet.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response(_envelope(404, "failed", "Outlet not found"),
+                            status=status.HTTP_404_NOT_FOUND)
+        return Response(_envelope(200, "success", "Outlet detail",
+                        data=serializers.OutletSerializer(obj).data))
+
+    def patch(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response(_envelope(404, "failed", "Outlet not found"),
+                            status=status.HTTP_404_NOT_FOUND)
+        serializer = serializers.OutletSerializer(obj, data=request.data,
+                                                  partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(_envelope(200, "success", "Outlet updated",
+                            data=serializer.data))
+        return Response(_envelope(400, "failed", "Bad request",
+                        errors=serializer.errors),
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response(_envelope(404, "failed", "Outlet not found"),
+                            status=status.HTTP_404_NOT_FOUND)
+        obj.is_active = False
+        obj.save(update_fields=["is_active", "updated_at"])
+        return Response(_envelope(200, "success", "Outlet deactivated"))
+
+
+class OutletItemCategoryDetailView(APIView):
+    def get_permissions(self):
+        if self.request.method in ("PATCH", "PUT", "DELETE"):
+            return [OutletManagementPermission()]
+        return [IsAuthenticated()]
+
+    def _get(self, pk):
+        try:
+            return OutletItemCategory.objects.get(id=pk)
+        except OutletItemCategory.DoesNotExist:
+            return None
+
+    def patch(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response(_envelope(404, "failed", "Category not found"),
+                            status=status.HTTP_404_NOT_FOUND)
+        serializer = serializers.OutletItemCategorySerializer(
+            obj, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(_envelope(200, "success", "Category updated",
+                            data=serializer.data))
+        return Response(_envelope(400, "failed", "Bad request",
+                        errors=serializer.errors),
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response(_envelope(404, "failed", "Category not found"),
+                            status=status.HTTP_404_NOT_FOUND)
+        obj.is_active = False
+        obj.save(update_fields=["is_active", "updated_at"])
+        return Response(_envelope(200, "success", "Category deleted"))
+
+
+class OutletItemDetailView(APIView):
+    def get_permissions(self):
+        if self.request.method in ("PATCH", "PUT", "DELETE"):
+            return [OutletManagementPermission()]
+        return [IsAuthenticated()]
+
+    def _get(self, pk):
+        try:
+            return OutletItem.objects.get(id=pk)
+        except OutletItem.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response(_envelope(404, "failed", "Item not found"),
+                            status=status.HTTP_404_NOT_FOUND)
+        return Response(_envelope(200, "success", "Item detail",
+                        data=serializers.OutletItemSerializer(obj).data))
+
+    def patch(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response(_envelope(404, "failed", "Item not found"),
+                            status=status.HTTP_404_NOT_FOUND)
+        serializer = serializers.OutletItemSerializer(
+            obj, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(_envelope(200, "success", "Item updated",
+                            data=serializer.data))
+        return Response(_envelope(400, "failed", "Bad request",
+                        errors=serializer.errors),
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response(_envelope(404, "failed", "Item not found"),
+                            status=status.HTTP_404_NOT_FOUND)
+        obj.is_active = False
+        obj.save(update_fields=["is_active", "updated_at"])
+        return Response(_envelope(200, "success", "Item deleted"))

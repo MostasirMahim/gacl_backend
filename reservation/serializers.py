@@ -26,13 +26,21 @@ class PayAdvanceSerializer(serializers.Serializer):
 class ReservationViewSerializer(serializers.ModelSerializer):
     resource_name = serializers.CharField(source="resource.name", read_only=True)
     resource_type = serializers.CharField(source="resource.resource_type", read_only=True)
+    member_ID = serializers.CharField(source="member.member_ID", read_only=True, default=None)
+    member_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Reservation
         fields = ["id", "reservation_number", "status", "resource",
-                  "resource_name", "resource_type", "member", "start_time",
-                  "end_time", "party_size", "advance_amount", "advance_paid",
-                  "note", "invoice", "created_at"]
+                  "resource_name", "resource_type", "member", "member_ID",
+                  "member_name", "start_time", "end_time", "party_size",
+                  "advance_amount", "advance_paid", "note", "invoice",
+                  "created_at"]
+
+    def get_member_name(self, obj):
+        if obj.member:
+            return f"{obj.member.first_name} {obj.member.last_name}".strip()
+        return None
 
 
 class AvailabilityQuerySerializer(serializers.Serializer):

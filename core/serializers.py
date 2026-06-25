@@ -85,14 +85,26 @@ class MembershipStatusChoiceSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255)
     id = serializers.IntegerField(read_only=True, required=False)
 
-    
+    # System-provided safe choices. Membership status drives core logic
+    # (dashboard counts, pending approval, etc.), so it must be restricted
+    # to a known, normalized (lowercase) set rather than free text.
+    SAFE_STATUSES = ["pending", "active", "inactive", "suspended", "rejected"]
+
     def validate_name(self, value):
-        is_exist = MembershipStatusChoice.objects.filter(name=value).exists()
+        normalized = (value or "").strip().lower()
+        if normalized not in self.SAFE_STATUSES:
+            raise serializers.ValidationError(
+                "Membership status must be one of: "
+                + ", ".join(self.SAFE_STATUSES)
+            )
+        is_exist = MembershipStatusChoice.objects.filter(
+            name__iexact=normalized).exists()
         if is_exist:
             raise serializers.ValidationError(
-                f'This membership_status name {value} already exists'
+                f'This membership_status name {normalized} already exists'
             )
-        return value
+        return normalized
+
     def create(self, validated_data):
         name = validated_data.get('name')
         membership_status = MembershipStatusChoice.objects.create(name=name)

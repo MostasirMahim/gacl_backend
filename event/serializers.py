@@ -32,10 +32,12 @@ class EventVenueSerializer(serializers.Serializer):
 
     def validate_postal_code(self, value):
         """
-        Ensure postal code is valid if provided.
+        Ensure postal code is valid if provided. Bangladeshi postal codes
+        are 4 digits, so the minimum length is 4.
         """
-        if value and len(value) < 5:
-            raise serializers.ValidationError("Postal code must be at least 4 characters.")
+        if value and len(str(value).strip()) < 4:
+            raise serializers.ValidationError(
+                "Postal code must be at least 4 characters.")
         return value
 
     def validate(self, data):

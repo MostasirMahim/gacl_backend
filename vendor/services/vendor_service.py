@@ -37,11 +37,15 @@ def select_offer(*, offer):
 
 
 @transaction.atomic
-def record_vendor_payment(*, offer, amount, note="", created_by=None):
+def record_vendor_payment(*, offer, amount, note="", created_by=None,
+                          reference="", payment_type="one_time",
+                          period_month=None, period_year=None, paid_on=None):
     if offer.status != "selected":
         raise VendorError("Only the selected vendor for a category can be paid.")
     payment = VendorPayment.objects.create(
-        offer=offer, amount=amount, note=note, created_by=created_by)
+        offer=offer, amount=amount, note=note, created_by=created_by,
+        reference=reference, payment_type=payment_type,
+        period_month=period_month, period_year=period_year, paid_on=paid_on)
 
     # record into central expense ledger
     try:

@@ -3,9 +3,16 @@ from . import views
 
 urlpatterns = [
     path("v1/outlets/", views.OutletView.as_view(), name="outlets"),
+    path("v1/outlets/<int:pk>/", views.OutletDetailView.as_view(),
+         name="outlet_detail"),
     path("v1/outlets/categories/", views.OutletItemCategoryView.as_view(),
          name="outlet_categories"),
+    path("v1/outlets/categories/<int:pk>/",
+         views.OutletItemCategoryDetailView.as_view(),
+         name="outlet_category_detail"),
     path("v1/outlets/items/", views.OutletItemView.as_view(), name="outlet_items"),
+    path("v1/outlets/items/<int:pk>/", views.OutletItemDetailView.as_view(),
+         name="outlet_item_detail"),
     path("v1/outlets/cross-rules/", views.CrossOrderingRuleView.as_view(),
          name="outlet_cross_rules"),
     path("v1/outlets/orders/", views.OutletOrderView.as_view(), name="outlet_orders"),

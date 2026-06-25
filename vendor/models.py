@@ -76,14 +76,31 @@ class VendorServiceOffer(VendorBaseModel):
 
 class VendorPayment(VendorBaseModel):
     """Payments made to a selected vendor (recorded as a central expense)."""
+    PAYMENT_TYPE_CHOICES = [
+        ("one_time", "one_time"),
+        ("monthly", "monthly"),
+        ("yearly", "yearly"),
+    ]
     offer = models.ForeignKey(
         VendorServiceOffer, on_delete=models.PROTECT, related_name="payments")
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    paid_on = models.DateField(auto_now_add=True)
+    paid_on = models.DateField(blank=True, null=True)
+    reference = models.CharField(max_length=120, blank=True, default="")
+    payment_type = models.CharField(
+        max_length=20, choices=PAYMENT_TYPE_CHOICES, default="one_time")
+    # for monthly payments: which month this payment is for (1-12) + year
+    period_month = models.PositiveSmallIntegerField(blank=True, null=True)
+    period_year = models.PositiveIntegerField(blank=True, null=True)
     note = models.CharField(max_length=255, blank=True, default="")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
         default=None, related_name="vendor_payments")
+
+    def save(self, *args, **kwargs):
+        if not self.paid_on:
+            from django.utils import timezone
+            self.paid_on = timezone.localdate()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.offer.vendor.name}: {self.amount}"

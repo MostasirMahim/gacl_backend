@@ -5,11 +5,12 @@ from event.views import (
     EventFeeView,EventDetailView,EventTicketBuyView,
     EventTicketDetailView,
     EventExpenseView, EventExpenseCategoryView, EventFoodItemView,
-    EventProfitabilityView,
+    EventProfitabilityView, CountryChoicesView,
 )
 
 urlpatterns = [
     path("v1/events/venues/", EventVenueView.as_view(), name="events_venues"),
+    path("v1/events/countries/", CountryChoicesView.as_view(), name="events_countries"),
     path("v1/events/", EventView.as_view(), name="events"),
     path("v1/events/<int:event_id>/", EventDetailView.as_view(), name="event_details"),
     path("v1/events/tickets/", EventTicketView.as_view(), name="event_tickets"),

@@ -53,15 +53,29 @@ def _compute_for_structure(structure):
 
 @transaction.atomic
 def generate_run(*, name, period_year, period_month, processed_by=None,
-                 staff_ids=None):
+                 staff_ids=None, force=False):
     """
     Create a payroll run and generate payslips for all (or selected) staff that
     have a current salary structure. Idempotent per (year, month) via unique key.
+    If force=True, an existing (non-paid) run for the period is cancelled and a
+    fresh one is generated so updated salary structures take effect.
     """
-    if PayrollRun.objects.filter(
-            period_year=period_year, period_month=period_month,
-            is_active=True).exclude(status="cancelled").exists():
-        raise PayrollError("A payroll run already exists for this period.")
+    existing = PayrollRun.objects.filter(
+        period_year=period_year, period_month=period_month,
+        is_active=True).exclude(status="cancelled")
+    if existing.exists():
+        if not force:
+            raise PayrollError(
+                "A payroll run already exists for this period. "
+                "Enable regenerate to replace it.")
+        # do not allow regenerating if any payslip has already been paid
+        for old in existing:
+            if old.payslips.filter(status="paid").exists():
+                raise PayrollError(
+                    "Cannot regenerate: some payslips in this period are "
+                    "already paid.")
+        # cancel the old run(s) so a clean run can be created
+        existing.update(status="cancelled", is_active=False)
 
     run = PayrollRun.objects.create(
         name=name, period_year=period_year, period_month=period_month,
@@ -153,4 +167,45 @@ def pay_payslip(*, payslip, processed_by=None):
     if not run.payslips.exclude(status__in=["paid", "cancelled"]).exists():
         run.status = "paid"
         run.save(update_fields=["status", "updated_at"])
+    return payslip
+
+
+@transaction.atomic
+def adjust_payslip(*, payslip, component_name, component_type, amount):
+    """
+    Add an adhoc earning/deduction line to an already-generated payslip and
+    recompute totals (Bug 6.1 — e.g. add a 100 deduction to July payroll).
+    Cannot adjust a paid/cancelled payslip.
+    """
+    if payslip.status == "paid":
+        raise PayrollError("Cannot adjust a payslip that is already paid.")
+    if payslip.status == "cancelled":
+        raise PayrollError("Cannot adjust a cancelled payslip.")
+    amount = Decimal(str(amount))
+    if amount <= 0:
+        raise PayrollError("Amount must be greater than zero.")
+    if component_type not in ("earning", "deduction"):
+        raise PayrollError("component_type must be 'earning' or 'deduction'.")
+
+    PayslipLine.objects.create(
+        payslip=payslip, component_name=component_name,
+        component_type=component_type, amount=amount)
+
+    if component_type == "earning":
+        payslip.gross_earnings = payslip.gross_earnings + amount
+        payslip.net_pay = payslip.net_pay + amount
+    else:
+        payslip.total_deductions = payslip.total_deductions + amount
+        payslip.net_pay = payslip.net_pay - amount
+    payslip.save(update_fields=["gross_earnings", "total_deductions",
+                                "net_pay", "updated_at"])
+
+    # keep the run total in sync
+    run = payslip.run
+    if run:
+        total = Decimal("0")
+        for ps in run.payslips.filter(is_active=True).exclude(status="cancelled"):
+            total += ps.net_pay
+        run.total_amount = total
+        run.save(update_fields=["total_amount", "updated_at"])
     return payslip

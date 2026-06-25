@@ -1081,3 +1081,127 @@ class RestaurantUploadExcelView(APIView):
                     "server_error": [str(e)]
                 }
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ---------------------------------------------------------------
+# Detail views added for QA: single restaurant detail + update (4.1),
+# single item detail + update/delete (4.2).
+# ---------------------------------------------------------------
+class RestaurantDetailView(APIView):
+    def get_permissions(self):
+        if self.request.method in ("PATCH", "PUT", "DELETE"):
+            return [RestaurantManagementPermission()]
+        return [IsAuthenticated()]
+
+    def _get(self, pk):
+        try:
+            return Restaurant.objects.select_related(
+                "cuisine_type", "restaurant_type").get(id=pk, is_active=True)
+        except Restaurant.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response({"code": 404, "status": "failed",
+                             "message": "Restaurant not found"},
+                            status=status.HTTP_404_NOT_FOUND)
+        return Response({"code": 200, "status": "success",
+                         "message": "Restaurant detail",
+                         "data": serializers.RestaurantViewSerializer(obj).data})
+
+    def patch(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response({"code": 404, "status": "failed",
+                             "message": "Restaurant not found"},
+                            status=status.HTTP_404_NOT_FOUND)
+        serializer = serializers.RestaurantUpdateSerializer(
+            obj, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            try:
+                cache.delete_pattern("restaurants::*")
+            except Exception:
+                pass
+            return Response({"code": 200, "status": "success",
+                             "message": "Restaurant updated",
+                             "data": serializers.RestaurantViewSerializer(obj).data})
+        return Response({"code": 400, "status": "failed",
+                         "message": "Bad request", "errors": serializer.errors},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response({"code": 404, "status": "failed",
+                             "message": "Restaurant not found"},
+                            status=status.HTTP_404_NOT_FOUND)
+        obj.is_active = False
+        obj.save(update_fields=["is_active", "updated_at"])
+        try:
+            cache.delete_pattern("restaurants::*")
+        except Exception:
+            pass
+        return Response({"code": 200, "status": "success",
+                         "message": "Restaurant deactivated"})
+
+
+class RestaurantItemDetailView(APIView):
+    def get_permissions(self):
+        if self.request.method in ("PATCH", "PUT", "DELETE"):
+            return [RestaurantManagementPermission()]
+        return [IsAuthenticated()]
+
+    def _get(self, pk):
+        try:
+            return RestaurantItem.objects.select_related(
+                "restaurant", "category").get(id=pk, is_active=True)
+        except RestaurantItem.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response({"code": 404, "status": "failed",
+                             "message": "Item not found"},
+                            status=status.HTTP_404_NOT_FOUND)
+        return Response({"code": 200, "status": "success",
+                         "message": "Item detail",
+                         "data": serializers.RestaurantItemForViewSerializer(obj).data})
+
+    def patch(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response({"code": 404, "status": "failed",
+                             "message": "Item not found"},
+                            status=status.HTTP_404_NOT_FOUND)
+        serializer = serializers.RestaurantItemUpdateSerializer(
+            obj, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            try:
+                cache.delete_pattern("restaurant_items::*")
+            except Exception:
+                pass
+            return Response({"code": 200, "status": "success",
+                             "message": "Item updated",
+                             "data": serializers.RestaurantItemForViewSerializer(obj).data})
+        return Response({"code": 400, "status": "failed",
+                         "message": "Bad request", "errors": serializer.errors},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response({"code": 404, "status": "failed",
+                             "message": "Item not found"},
+                            status=status.HTTP_404_NOT_FOUND)
+        obj.is_active = False
+        obj.save(update_fields=["is_active", "updated_at"])
+        try:
+            cache.delete_pattern("restaurant_items::*")
+        except Exception:
+            pass
+        return Response({"code": 200, "status": "success",
+                         "message": "Item deleted"})

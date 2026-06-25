@@ -61,6 +61,13 @@ class GenerateRunSerializer(serializers.Serializer):
     period_month = serializers.IntegerField(min_value=1, max_value=12)
     staff_ids = serializers.ListField(
         child=serializers.IntegerField(), required=False, default=list)
+    force = serializers.BooleanField(required=False, default=False)
+
+
+class AdjustPayslipSerializer(serializers.Serializer):
+    component_name = serializers.CharField(max_length=255)
+    component_type = serializers.ChoiceField(choices=["earning", "deduction"])
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
 
 
 class StaffLoanSerializer(serializers.ModelSerializer):

@@ -28,12 +28,17 @@ class OutletItemMediaSerializer(serializers.ModelSerializer):
 
 class OutletItemSerializer(serializers.ModelSerializer):
     media = OutletItemMediaSerializer(many=True, read_only=True)
+    category_name = serializers.CharField(source="category.name",
+                                          read_only=True, default=None)
+    outlet_name = serializers.CharField(source="outlet.name",
+                                        read_only=True, default=None)
 
     class Meta:
         model = OutletItem
         fields = ["id", "name", "description", "unit", "unit_cost",
                   "selling_price", "availability", "spicy_selectable",
-                  "is_public_show", "category", "outlet", "media", "is_active"]
+                  "is_public_show", "category", "category_name", "outlet",
+                  "outlet_name", "media", "is_active"]
 
 
 class CrossOrderingRuleSerializer(serializers.ModelSerializer):
@@ -114,10 +119,13 @@ class OutletInventoryItemSerializer(serializers.ModelSerializer):
 
 
 class OutletInventoryTransactionSerializer(serializers.ModelSerializer):
+    inventory_item_name = serializers.CharField(
+        source="inventory_item.name", read_only=True, default=None)
+
     class Meta:
         model = OutletInventoryTransaction
-        fields = ["id", "inventory_item", "movement", "quantity", "reason",
-                  "order", "created_by", "created_at"]
+        fields = ["id", "inventory_item", "inventory_item_name", "movement",
+                  "quantity", "reason", "order", "created_by", "created_at"]
         read_only_fields = ["created_by"]
 
 

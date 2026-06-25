@@ -93,7 +93,8 @@ class ReservationView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        qs = Reservation.objects.filter(is_active=True)
+        qs = Reservation.objects.select_related(
+            "member", "resource").filter(is_active=True)
         st = request.query_params.get("status")
         if st:
             qs = qs.filter(status=st)
@@ -103,6 +104,16 @@ class ReservationView(APIView):
         resource_id = request.query_params.get("resource_id")
         if resource_id:
             qs = qs.filter(resource_id=resource_id)
+        # Bug 5.1: search by member name / ID, newest first (serial)
+        search = request.query_params.get("search")
+        if search:
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(member__member_ID__icontains=search) |
+                Q(member__first_name__icontains=search) |
+                Q(member__last_name__icontains=search) |
+                Q(resource__name__icontains=search))
+        qs = qs.order_by("-created_at")
         paginator = CustomPageNumberPagination()
         page = paginator.paginate_queryset(qs, request)
         data = serializers.ReservationViewSerializer(page, many=True).data

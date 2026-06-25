@@ -899,3 +899,16 @@ class EventProfitabilityView(APIView):
                 "net": income_total - expense_total,
             },
         }, status=status.HTTP_200_OK)
+
+
+class CountryChoicesView(APIView):
+    """Bug 7.2: serve country choices for the venue country dropdown."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .models import COUNTRY_CHOICES
+        # Put Bangladesh first as the club is BD-based, then the rest.
+        data = [{"code": c, "name": n} for c, n in COUNTRY_CHOICES]
+        data.sort(key=lambda x: (x["code"] != "BD", x["name"]))
+        return Response({"code": 200, "status": "success",
+                         "message": "Country choices", "data": data})

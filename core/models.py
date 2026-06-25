@@ -58,6 +58,14 @@ class InstituteName(models.Model):
 class MembershipStatusChoice(models.Model):
     name = models.CharField(max_length=255, unique=True)
 
+    def save(self, *args, **kwargs):
+        # Normalize to a safe, lowercase, trimmed value so that
+        # "Pending" and "pending" are treated as the same status and
+        # never disrupt status-dependent logic (dashboard counts, etc.).
+        if self.name:
+            self.name = self.name.strip().lower()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.name
 
