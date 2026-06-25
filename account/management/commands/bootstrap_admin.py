@@ -26,7 +26,7 @@ class Command(BaseCommand):
                 "promo_code_management", "event_management", "product_management", 
                 "facility_management", "view_all_users", "bulk_emails_management",
                 "vendor_management", "payroll_management", "reservation_management",
-                "outlet_management", "attendance_management", "financial_management"
+                "outlet_management", "attendance_management"
             ]
             permissions = []
             for permission_name in all_permission_name:

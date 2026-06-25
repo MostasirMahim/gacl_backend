@@ -29,7 +29,7 @@ User = get_user_model()
 
 PERMISSIONS = [
     "member_management", "restaurant_management", "event_management",
-    "product_management", "facility_management", "financial_management",
+    "product_management", "facility_management",
     "member_financial_management", "attendance_management", "outlet_management",
     "reservation_management", "payroll_management", "vendor_management",
 ]
