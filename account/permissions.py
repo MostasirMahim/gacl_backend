@@ -1,12 +1,12 @@
 from rest_framework.permissions import BasePermission
 from .models import AssignGroupPermission, GroupModel, PermissonModel
-import pdb
 from django.core.cache import cache
+from .protected_urls import get_required_permission_for_path
 
 
 class HasCustomPermission(BasePermission):
     required_permission = None
-    action_permissions = None  # e.g. {'GET': 'section:view', 'POST': 'section:create', 'PUT': 'section:edit', 'DELETE': 'section:delete'}
+    action_permissions = None
 
     def has_permission(self, request, view):
         if not request.user or request.user.is_anonymous:
@@ -15,9 +15,6 @@ class HasCustomPermission(BasePermission):
         user = request.user
         if getattr(user, 'is_superuser', False):
             return True
-
-        if self.required_permission is None and not getattr(self, 'action_permissions', None):
-            return False
 
         cache_key = f"user_permissions_{user.id}"
         user_permissions = cache.get(cache_key)
@@ -35,13 +32,21 @@ class HasCustomPermission(BasePermission):
         else:
             user_permissions = set(user_permissions)
 
-        # Check action sub-permission if configured for current HTTP method
+        # 1. First check centralized URL path pattern registry
+        path_permission = get_required_permission_for_path(request.path)
+        if path_permission:
+            return path_permission in user_permissions
+
+        # 2. Second check action_permissions dictionary if present
         target_perm = None
         if hasattr(self, 'action_permissions') and isinstance(self.action_permissions, dict):
             target_perm = self.action_permissions.get(request.method)
 
         if target_perm:
-            # Grant access if user has specific sub-permission OR master section permission
-            return target_perm in user_permissions or self.required_permission in user_permissions
+            return target_perm in user_permissions
 
-        return self.required_permission in user_permissions
+        # 3. Fallback to view's required_permission
+        if self.required_permission:
+            return self.required_permission in user_permissions
+
+        return False

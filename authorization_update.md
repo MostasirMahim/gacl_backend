@@ -163,3 +163,39 @@ graph TD
 1. **Frontend Boundary (Main Section Perms)**: Frontend applications continue checking main permissions (e.g., `restaurant_management`) to toggle high-level navigation tabs, dashboards, and module routes.
 2. **Backend Enforcement (Action Sub-Perms)**: API endpoints enforce specific action permissions. If a staff user has `restaurant:order_create` but lacks `restaurant:billing`, they can place orders but cannot bill them.
 3. **Flexible Role Customization**: Administrators can create custom groups in `GroupModel` with any combination of main and sub-permissions to fit exact organizational hierarchies.
+
+---
+
+## 4. Frontend Integration Workflow & UI Component Visibility Control
+
+To deliver a production-grade web application experience, the frontend mirrors the backend's hybrid authorization model through five integrated UI control mechanisms:
+
+```mermaid
+graph TD
+    UserAuth[User Authenticated Session] --> FetchPerms[Fetch User Permissions Array]
+    FetchPerms --> Cache[React Query Cache / Stale Time 5m]
+    
+    Cache --> RouterGuard[Middleware & Protected Sub-Routes]
+    Cache --> SidebarFilter[Recursive Navigation & Sub-Item Filter]
+    Cache --> ComponentGuard[PermissionGuard UI Wrapper]
+    Cache --> Hook[usePermissions Custom Hook]
+
+    RouterGuard --> Redirect[Redirect to /unauthorized if unpermitted]
+    SidebarFilter --> HideNav[Hide unpermitted sidebar items & sub-links]
+    ComponentGuard --> HideUI[Hide action buttons, forms & table columns]
+```
+
+### Frontend Implementation Modules:
+
+1. **Central Sub-Permission Registry (`src/lib/component_permissions.ts`)**:
+   * Contains `sub_protected_routes` for direct sub-path checking.
+   * Exports `UI_ACTION_PERMISSIONS` constants (e.g., `MEMBER_CREATE`, `MENU_EDIT`, `LOG_EXPORT`).
+2. **Global Custom Hook (`src/hooks/usePermissions.ts`)**:
+   * Exposes `hasPermission(permissionName)` and `hasAnyPermission(list)`.
+   * Evaluates exact sub-permissions, master section fallbacks (e.g., `member_management` unlocking all `member:*` actions), and superadmin overrides (`isAdmin`).
+3. **Declarative Component Guard (`src/components/common/PermissionGuard.tsx`)**:
+   * Protects individual UI elements (buttons, forms, action icons).
+   * Usage: `<PermissionGuard permission="member:create"><Button>Add Member</Button></PermissionGuard>`.
+4. **Recursive Navigation Filter (`src/components/utils/Navigation_functions.tsx`)**:
+   * Maps sub-navigation labels (e.g., "Add Member", "View Members", "Add restaurant item") to exact sub-permissions.
+   * Recursively filters out unpermitted sub-links; if an entire section has 0 allowed sub-items, the section header is automatically hidden.
