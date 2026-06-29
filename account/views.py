@@ -1784,6 +1784,11 @@ class GetUserPermissionsView(APIView):
                     "groups": [],
                     "permissions": []
                 }
+                if not getattr(user, 'is_staff', False) and not getattr(user, 'is_superuser', False):
+                    member_group = GroupModel.objects.filter(name="club_member").prefetch_related("permission").first()
+                    if member_group:
+                        user_info["groups"].append({"group_id": member_group.id, "group_name": member_group.name})
+                        user_info["permissions"] = [{"permission_id": perm.id, "permission_name": perm.name} for perm in member_group.permission.all()]
                 users_data.append(user_info)
 
             response = Response({

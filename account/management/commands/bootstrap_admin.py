@@ -1,68 +1,52 @@
+import os
 from django.core.management.base import BaseCommand
+from django.core.management import call_command
 from django.contrib.auth import get_user_model
-from account.models import PermissonModel, GroupModel, AssignGroupPermission
+from django.conf import settings
+from account.models import GroupModel, AssignGroupPermission, PermissonModel
 
 
 class Command(BaseCommand):
-    help = 'Creates initial admin and other model data'
+    help = "Bootstraps superuser account safely and attaches super_admin group."
 
     def handle(self, *args, **kwargs):
-        self.create_admin_with_groups()
+        self.stdout.write("Starting superadmin bootstrap...")
+        
+        # 1. Ensure authorization infrastructure is seeded
+        super_admin_group = GroupModel.objects.filter(name="super_admin").first()
+        if not super_admin_group or super_admin_group.permission.count() == 0:
+            self.stdout.write("Authorization infrastructure missing or unseeded. Running 'bootstrap_auth'...")
+            call_command("bootstrap_auth")
+            super_admin_group = GroupModel.objects.filter(name="super_admin").first()
 
-    def create_admin_with_groups(self):
-        try:
-            User = get_user_model()
-            if not User.objects.filter(username="admin").exists():
-                user = User.objects.create_superuser(
-                    username="admin",
-                    email="admin@example123.com",
-                    password="admin"
-                )
-            else:
-                user = User.objects.get(username="admin")
-            all_permission_name = [
-                # Main section permissions
-                "employee_onboarding", "group_permission_management", "activity_log_management",
-                "restaurant_management", "member_financial_management", "member_management", 
-                "promo_code_management", "event_management", "product_management", 
-                "facility_management", "view_all_users", "bulk_emails_management",
-                "vendor_management", "payroll_management", "reservation_management",
-                "outlet_management", "attendance_management",
-                # Granular action sub-permissions
-                "member:view", "member:create", "member:edit", "member:delete", "member:export",
-                "member_financial:view_invoices", "member_financial:generate_invoice", "member_financial:process_payment", "member_financial:adjust_dues",
-                "restaurant:view_menu", "restaurant:menu_edit", "restaurant:order_create", "restaurant:kitchen_update", "restaurant:billing",
-                "outlet:view_menu", "outlet:menu_edit", "outlet:order_create", "outlet:billing", "outlet:cross_order_rule",
-                "reservation:view", "reservation:create", "reservation:cancel", "reservation:process_advance",
-                "facility:view", "facility:create", "facility:edit", "facility:toggle_status",
-                "event:view", "event:create", "event:edit", "event:delete", "event:manage_expenses",
-                "attendance:view_records", "attendance:check_in_out", "attendance:card_issue", "attendance:guest_register",
-                "payroll:view_structures", "payroll:edit_structure", "payroll:run_generate", "payroll:pay_slip", "payroll:manage_loans",
-                "vendor:view", "vendor:create", "vendor:select_offer", "vendor:record_payment",
-                "activity_log:view", "activity_log:export", "activity_log:clear",
-                "group:view", "group:create", "group:edit", "group:delete", "group:assign_user",
-                "employee:onboard", "employee:deactivate", "employee:edit_profile",
-                "user:view_list", "user:view_detail", "user:reset_password",
-                "email:view_logs", "email:send_single", "email:send_bulk", "email:template_edit",
-                "product:view", "product:create", "product:edit", "product:adjust_stock",
-                "promo_code:view", "promo_code:create", "promo_code:toggle_status"
-            ]
-            permissions = []
-            for permission_name in all_permission_name:
-                permission, _ = PermissonModel.objects.get_or_create(name=permission_name)
-                permissions.append(permission)
+        # 2. Extract superadmin credentials from env / settings / fallbacks
+        username = getattr(settings, "SUPER_ADMIN_USERNAME", os.getenv("SUPER_ADMIN_USERNAME", "admin"))
+        email = getattr(settings, "SUPER_ADMIN_EMAIL", os.getenv("SUPER_ADMIN_EMAIL", "admin@gacl.test"))
+        password = getattr(settings, "SUPER_ADMIN_PASSWORD", os.getenv("SUPER_ADMIN_PASSWORD", "admin1234"))
 
-            group, _ = GroupModel.objects.get_or_create(name="super_admin")
-            group.permission.set(permissions)
+        User = get_user_model()
+        user = User.objects.filter(username=username).first()
+        if not user:
+            user = User.objects.create_superuser(
+                username=username,
+                email=email,
+                password=password
+            )
+            self.stdout.write(self.style.SUCCESS(f"Superuser '{username}' created successfully."))
+        else:
+            user.is_superuser = True
+            user.is_staff = True
+            user.email = email
+            user.set_password(password)
+            user.save()
+            self.stdout.write(self.style.SUCCESS(f"Superuser '{username}' updated successfully."))
 
-            if not AssignGroupPermission.objects.filter(user=user, group=group).exists():
-                assigned_group = AssignGroupPermission.objects.create(
-                    user=user)
-                assigned_group.group.add(group)
-                assigned_group.save()
+        # 3. Assign super_admin group to user
+        if super_admin_group:
+            assign_group, _ = AssignGroupPermission.objects.get_or_create(user=user)
+            if not assign_group.group.filter(id=super_admin_group.id).exists():
+                assign_group.group.add(super_admin_group)
+                assign_group.save()
+            self.stdout.write(self.style.SUCCESS(f"Assigned 'super_admin' group to user '{username}'."))
 
-            self.stdout.write(self.style.SUCCESS(
-                "Admin user created with super admin group."))
-        except Exception as e:
-            self.stdout.write(
-                "something went wrong", str(e))
+        self.stdout.write(self.style.SUCCESS("Superadmin bootstrap completed successfully."))

@@ -68,7 +68,10 @@ def create_outlet_order(*, outlet, member, items, guest=None, waiter=None,
     sub_total = Decimal("0.00")
     needs_room = False
     for line in items:
-        source = line.get("source", outlet.outlet_type)
+        source = line.get("source")
+        if not source or source == "outlet":
+            source = outlet.outlet_type
+
         allowed, requires_room = _check_cross_rule(outlet.outlet_type, source)
         if not allowed:
             raise OutletOrderError(

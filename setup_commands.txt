@@ -1,0 +1,51 @@
+===============================================================================
+               GREGORIAN CLUB MANAGEMENT SYSTEM - SYSTEM SETUP COMMANDS
+===============================================================================
+
+This document outlines the sequential management commands required to initialize
+and seed the Gregorian Club application database cleanly. Always execute these
+commands in the exact numerical sequence listed below.
+
+-------------------------------------------------------------------------------
+SEQUENCE 1: AUTHORIZATION INFRASTRUCTURE SEEDING
+-------------------------------------------------------------------------------
+Command:
+    python manage.py bootstrap_auth
+
+Description:
+    Architects and seeds the core authorization system into the database.
+    - Populates all 17 main section permissions and 40+ granular action sub-permissions in PermissonModel.
+    - Creates all 11 core departmental groups in GroupModel (super_admin [ID 1], club_member [ID 2], executive_admin, member_services, finance_accounts, restaurant_kitchen, outlet_operations, facility_sports, events_marketing, security_gate, hr_payroll, supply_procurement).
+    - Attaches exact operational permissions to each group without assigning any user accounts.
+
+-------------------------------------------------------------------------------
+SEQUENCE 2: SUPERADMIN USER BOOTSTRAPPING
+-------------------------------------------------------------------------------
+Command:
+    python manage.py bootstrap_admin
+
+Description:
+    Creates or updates the primary Superadmin account and attaches super_admin group privileges.
+    - Automatically verifies if bootstrap_auth has run; if missing, it invokes bootstrap_auth first.
+    - Reads environment variables (SUPER_ADMIN_USERNAME, SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD).
+    - Fallback credentials: username='admin', email='admin@gacl.test', password='admin1234'.
+    - Assigns the user to the super_admin group cleanly in AssignGroupPermission.
+
+-------------------------------------------------------------------------------
+SEQUENCE 3: UNIFIED ACCOUNT & PROFILE SEEDING (MEMBERS & STAFF)
+-------------------------------------------------------------------------------
+Command:
+    python manage.py seed_accounts --members 50 --staff 50
+
+Description:
+    Populates full testing datasets for club members and departmental staff.
+    - Active Members (50): Creates member1 .. member50 (password 'member1234'), binds them to the club_member group, and populates full profile relations (financial basics, contact numbers, addresses, spouses, companions, emergency contacts, professions, documents).
+    - Active Staff (50): Creates staff1 .. staff50 (password 'staff1234'), generates StaffProfile records, and distributes users evenly across the 10 departmental section groups.
+
+===============================================================================
+SUMMARY QUICK EXECUTION COMMANDS (Development / Testing)
+===============================================================================
+python manage.py migrate
+python manage.py bootstrap_auth
+python manage.py bootstrap_admin
+python manage.py seed_accounts --members 50 --staff 50

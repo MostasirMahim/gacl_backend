@@ -1,6 +1,8 @@
 cd /root/member_management_backend
 source venv/bin/activate
 DJANGO_ENV=production python manage.py migrate
+DJANGO_ENV=production python manage.py bootstrap_auth
+DJANGO_ENV=production python manage.py bootstrap_admin
 DJANGO_ENV=production python manage.py collectstatic --noinput
 systemctl restart member.service
 
