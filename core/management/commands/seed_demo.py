@@ -98,11 +98,15 @@ class Command(BaseCommand):
 
     # ----------------------------------------------------------------
     def _seed_users_and_permissions(self, staff_count):
+        from django.core.management import call_command
         from account.models import PermissonModel, GroupModel, AssignGroupPermission
-        perms = []
-        for name in PERMISSIONS:
-            p, _ = PermissonModel.objects.get_or_create(name=name)
-            perms.append(p)
+        from attendance.models import StaffProfile
+
+        # Execute section permissions seeding command
+        call_command("seed_staff_permissions")
+
+        # Ensure admin superuser exists
+        perms = list(PermissonModel.objects.all())
         admin_group, _ = GroupModel.objects.get_or_create(name="Administrators")
         admin_group.permission.set(perms)
 
@@ -110,34 +114,14 @@ class Command(BaseCommand):
             username="admin",
             defaults={"email": "admin@gacl.test", "is_staff": True,
                       "is_superuser": True, "first_name": "Club", "last_name": "Admin"})
-        if created:
+        if created or not admin.check_password("admin1234"):
             admin.set_password("admin1234")
             admin.save()
         assign, _ = AssignGroupPermission.objects.get_or_create(user=admin)
-        assign.group.set([admin_group])
+        assign.group.add(admin_group)
 
-        # staff users + profiles
-        from attendance.models import StaffProfile
-        designations = ["Waiter", "Chef", "Manager", "Bartender", "Receptionist",
-                        "Cleaner", "Accountant", "Security"]
-        self.staff_profiles = []
-        for i in range(1, staff_count + 1):
-            u, c = User.objects.get_or_create(
-                username=f"staff{i}",
-                defaults={"email": f"staff{i}@gacl.test", "is_staff": True,
-                          "first_name": random.choice(FIRST_NAMES),
-                          "last_name": random.choice(LAST_NAMES)})
-            if c:
-                u.set_password("staff1234")
-                u.save()
-            sp, _ = StaffProfile.objects.get_or_create(
-                user=u,
-                defaults={"staff_ID": f"EMP{i:03d}",
-                          "designation": random.choice(designations),
-                          "phone": f"01{random.randint(300000000, 999999999)}",
-                          "guest_allowed": i % 3 == 0})
-            self.staff_profiles.append(sp)
-        self.stdout.write(f"  users: 1 admin + {staff_count} staff, {len(perms)} permissions")
+        self.staff_profiles = list(StaffProfile.objects.filter(user__is_staff=True).exclude(user__username="admin"))
+        self.stdout.write(f"  users: 1 admin + {len(self.staff_profiles)} staff assigned across 10 section groups")
         return admin
 
     # ----------------------------------------------------------------
