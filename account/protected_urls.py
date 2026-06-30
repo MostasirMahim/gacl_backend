@@ -53,7 +53,26 @@ PROTECTED_API_URLS = [
     (re.compile(r"^/api/event/v1/events/"), "event:view"),
 
     # Member endpoints
+    (re.compile(r"^/api/member/v1/members/history/"), "member:history"),
     (re.compile(r"^/api/member/v1/members/"), "member:view"),
+
+    # Member Financial endpoints
+    (re.compile(r"^/api/member_financial/v1/invoices/custom/delete/"), "member_financial:adjust_dues"),
+    (re.compile(r"^/api/member_financial/v1/invoices/"), "member_financial:view_invoices"),
+    (re.compile(r"^/api/member_financial/v1/payment/invoice/"), "member_financial:generate_invoice"),
+    (re.compile(r"^/api/member_financial/v1/income/"), "member_financial:view_invoices"),
+    (re.compile(r"^/api/member_financial/v1/sales/"), "member_financial:view_invoices"),
+    (re.compile(r"^/api/member_financial/v1/transactions/"), "member_financial:view_invoices"),
+    (re.compile(r"^/api/member_financial/v1/payments/"), "member_financial:process_payment"),
+    (re.compile(r"^/api/member_financial/v1/dues/"), "member_financial:view_invoices"),
+    (re.compile(r"^/api/member_financial/v1/member_dues/"), "member_financial:adjust_dues"),
+    (re.compile(r"^/api/member_financial/v1/member_accounts/recharge/"), "member_financial:process_payment"),
+    (re.compile(r"^/api/member_financial/v1/member_accounts/"), "member_financial:view_invoices"),
+    (re.compile(r"^/api/member_financial/v1/lounge/upload/excel/"), "outlet:menu_edit"),
+    (re.compile(r"^/api/member_financial/v1/others/upload/excel/"), "member_financial:view_invoices"),
+
+    # Activity Log endpoints
+    (re.compile(r"^/api/activity_log/v1/activity/all_user_activity/"), "activity_log:view"),
 ]
 
 def get_required_permission_for_path(path: str) -> str | None:

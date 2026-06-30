@@ -29,6 +29,10 @@ logger = logging.getLogger("myapp")
 
 class PaymentMethodView(APIView):
     permission_classes = [IsAuthenticated, MemberFinancialManagementPermission]
+    action_permissions = {
+        "GET": "member_financial:view_invoices",
+        "POST": "member_financial:adjust_dues",
+    }
 
     def get(self, request):
         try:

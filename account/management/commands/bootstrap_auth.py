@@ -11,8 +11,10 @@ ALL_PERMISSIONS = [
     "vendor_management", "payroll_management", "reservation_management",
     "outlet_management", "attendance_management",
     # Granular action sub-permissions
-    "member:view", "member:create", "member:edit", "member:delete", "member:export",
+    "member:view", "member:create", "member:edit", "member:delete", "member:export", "member:history",
     "member_financial:view_invoices", "member_financial:generate_invoice", "member_financial:process_payment", "member_financial:adjust_dues",
+    "member_financial:view_incomes", "member_financial:view_sales", "member_financial:view_transactions", "member_financial:view_payments",
+    "member_financial:view_dues", "member_financial:view_accounts",
     "restaurant:view_menu", "restaurant:menu_edit", "restaurant:order_create", "restaurant:kitchen_update", "restaurant:billing",
     "outlet:view_menu", "outlet:menu_edit", "outlet:order_create", "outlet:billing", "outlet:cross_order_rule",
     "reservation:view", "reservation:create", "reservation:cancel", "reservation:process_advance",
@@ -38,13 +40,13 @@ CORE_GROUPS = [
     {
         "name": "club_member",
         "permissions": [
-            "member_management", "restaurant_management", "outlet_management",
-            "reservation_management", "event_management", "member_financial_management", "activity_log_management",
-            "member:view", "member_financial:view_invoices", "member_financial:process_payment",
+            "member:view", 
+            "member_financial:view_invoices", "member_financial:process_payment",
+            "member_financial:view_dues", "member_financial:view_accounts",
             "restaurant:view_menu", "restaurant:order_create",
             "outlet:view_menu", "outlet:order_create",
             "reservation:view", "reservation:create",
-            "event:view", "activity_log:view"
+            "event:view"
         ]
     },
     {
@@ -54,16 +56,16 @@ CORE_GROUPS = [
     {
         "name": "member_services",
         "permissions": [
-            "member_management", "view_all_users", "bulk_emails_management", "activity_log_management",
-            "member:view", "member:create", "member:edit", "member:export",
+            "member:view", "member:create", "member:edit", "member:export", "member:history",
             "user:view_list", "user:view_detail", "email:send_single", "activity_log:view"
         ]
     },
     {
         "name": "finance_accounts",
         "permissions": [
-            "member_financial_management", "payroll_management", "vendor_management", "promo_code_management",
             "member_financial:view_invoices", "member_financial:generate_invoice", "member_financial:process_payment", "member_financial:adjust_dues",
+            "member_financial:view_incomes", "member_financial:view_sales", "member_financial:view_transactions", "member_financial:view_payments",
+            "member_financial:view_dues", "member_financial:view_accounts",
             "payroll:view_structures", "payroll:edit_structure", "payroll:run_generate", "payroll:pay_slip", "payroll:manage_loans",
             "vendor:view", "vendor:record_payment", "promo_code:view", "promo_code:create"
         ]
@@ -71,7 +73,6 @@ CORE_GROUPS = [
     {
         "name": "restaurant_kitchen",
         "permissions": [
-            "restaurant_management", "product_management",
             "restaurant:view_menu", "restaurant:menu_edit", "restaurant:order_create", "restaurant:kitchen_update", "restaurant:billing",
             "product:view"
         ]
@@ -79,7 +80,6 @@ CORE_GROUPS = [
     {
         "name": "outlet_operations",
         "permissions": [
-            "outlet_management", "product_management",
             "outlet:view_menu", "outlet:menu_edit", "outlet:order_create", "outlet:billing", "outlet:cross_order_rule",
             "product:view"
         ]
@@ -87,7 +87,6 @@ CORE_GROUPS = [
     {
         "name": "facility_sports",
         "permissions": [
-            "reservation_management", "facility_management",
             "reservation:view", "reservation:create", "reservation:cancel", "reservation:process_advance",
             "facility:view", "facility:edit", "facility:toggle_status"
         ]
@@ -95,7 +94,6 @@ CORE_GROUPS = [
     {
         "name": "events_marketing",
         "permissions": [
-            "event_management", "promo_code_management", "bulk_emails_management",
             "event:view", "event:create", "event:edit", "event:manage_expenses",
             "promo_code:view", "promo_code:create", "email:send_bulk"
         ]
@@ -103,14 +101,12 @@ CORE_GROUPS = [
     {
         "name": "security_gate",
         "permissions": [
-            "attendance_management",
             "attendance:view_records", "attendance:check_in_out", "attendance:card_issue", "attendance:guest_register"
         ]
     },
     {
         "name": "hr_payroll",
         "permissions": [
-            "employee_onboarding", "group_permission_management", "payroll_management", "attendance_management",
             "employee:onboard", "employee:deactivate", "employee:edit_profile",
             "group:view", "group:assign_user", "payroll:view_structures", "attendance:view_records"
         ]
@@ -118,7 +114,6 @@ CORE_GROUPS = [
     {
         "name": "supply_procurement",
         "permissions": [
-            "vendor_management", "product_management",
             "vendor:view", "vendor:create", "vendor:select_offer",
             "product:view", "product:create", "product:adjust_stock"
         ]
