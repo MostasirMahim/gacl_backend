@@ -42,7 +42,6 @@ CORE_GROUPS = [
         "permissions": [
             "member:view", 
             "member_financial:view_invoices", "member_financial:process_payment",
-            "member_financial:view_dues", "member_financial:view_accounts",
             "restaurant:view_menu", "restaurant:order_create",
             "outlet:view_menu", "outlet:order_create",
             "reservation:view", "reservation:create",

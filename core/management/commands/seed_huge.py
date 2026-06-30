@@ -73,14 +73,42 @@ class Command(DemoCommand):
             f"{opts['staff']} staff, {self.months} months of history..."))
         if opts["flush"]:
             self._flush()
+
+        from django.core.management import call_command
+        from member.models import Member
+        from attendance.models import StaffProfile
+
+        # Check if seed_accounts has been run by checking if we have member / staff accounts
+        member_users = User.objects.filter(username__startswith="member")
+        staff_users = User.objects.filter(username__startswith="staff")
+
+        if not member_users.exists() or not staff_users.exists():
+            self.stdout.write(self.style.WARNING("Unified accounts not found. Running seed_accounts first..."))
+            call_command("seed_accounts", members=opts["members"], staff=opts["staff"])
+        else:
+            self.stdout.write(self.style.SUCCESS("Existing unified accounts found. Using them for seeding data..."))
+
+        # Load users, members and staff profiles
+        self.admin = User.objects.filter(is_superuser=True).first()
+        if not self.admin:
+            # Fallback or create superuser if not found
+            self.admin, _ = User.objects.get_or_create(
+                username="admin",
+                defaults={"email": "admin@gacl.test", "is_staff": True,
+                          "is_superuser": True, "first_name": "Club", "last_name": "Admin"})
+            if not self.admin.check_password("admin1234"):
+                self.admin.set_password("admin1234")
+                self.admin.save()
+
+        self.staff_profiles = list(StaffProfile.objects.all())
+        members = list(Member.objects.all())
+
         # widen the random pools
         FIRST_NAMES.extend(EXTRA_FIRST)
         LAST_NAMES.extend(EXTRA_LAST)
 
         with transaction.atomic():
-            self.admin = self._seed_users_and_permissions(opts["staff"])
             self._seed_choice_models()
-            members = self._seed_members(opts["members"])
             self._seed_attendance_huge(members)
             self._seed_restaurant_huge(members)
             self._seed_outlets_huge(members)
@@ -91,6 +119,25 @@ class Command(DemoCommand):
             self._seed_events_huge(members)
         self.stdout.write(self.style.SUCCESS("HUGE seed complete."))
         self._summary()
+
+    def _seed_choice_models(self):
+        from core.models import (Gender, MembershipType, InstituteName,
+            MembershipStatusChoice, MaritalStatusChoice)
+
+        def safe_get_or_create(model, name, defaults=None):
+            obj = model.objects.filter(name__iexact=name).first()
+            if obj:
+                return obj
+            return model.objects.create(name=name, **(defaults or {}))
+
+        self.genders = [safe_get_or_create(Gender, n) for n in ["Male", "Female", "Other"]]
+        self.mtypes = [safe_get_or_create(MembershipType, n) for n in ["General", "Life", "Corporate", "Honorary"]]
+        self.institutes = [
+            safe_get_or_create(InstituteName, n, {"code": f"INST{idx:02d}"})
+            for idx, n in enumerate(["Dhaka University", "BUET", "NSU", "BRAC"], start=1)
+        ]
+        self.mstatus = [safe_get_or_create(MembershipStatusChoice, n) for n in ["Active", "Suspended", "Pending"]]
+        self.marital = [safe_get_or_create(MaritalStatusChoice, n) for n in ["Single", "Married"]]
 
     # ----------------------------------------------------------------
     # Members: override to use Saint-Club prefix + far more variety.

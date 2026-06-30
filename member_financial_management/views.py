@@ -1705,6 +1705,10 @@ class DueSpecificView(APIView):
 
 class MemberDueView(APIView):
     permission_classes = [IsAuthenticated, MemberFinancialManagementPermission]
+    action_permissions = {
+        "GET": "member_financial:view_dues",
+        "POST": "member_financial:process_payment",
+    }
 
     def get(self, request):
         try:
@@ -1990,6 +1994,7 @@ class MemberDueView(APIView):
 
 class MemberDueSpecificView(APIView):
     permission_classes = [IsAuthenticated, MemberFinancialManagementPermission]
+    required_permission = "member_financial:view_dues"
 
     def get(self, request, id):
         try:
@@ -2034,6 +2039,7 @@ class MemberDueSpecificView(APIView):
 
 class MemberAccountView(APIView):
     permission_classes = [IsAuthenticated, MemberFinancialManagementPermission]
+    required_permission = "member_financial:view_accounts"
 
     def get(self, request):
         try:
@@ -2080,6 +2086,7 @@ class MemberAccountView(APIView):
 
 class MemberAccountSpecificSpecificView(APIView):
     permission_classes = [IsAuthenticated, MemberFinancialManagementPermission]
+    required_permission = "member_financial:view_accounts"
 
     def get(self, request, id):
         try:

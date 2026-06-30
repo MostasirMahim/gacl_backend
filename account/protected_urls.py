@@ -65,11 +65,10 @@ PROTECTED_API_URLS = [
     (re.compile(r"^/api/member_financial/v1/transactions/"), "member_financial:view_invoices"),
     (re.compile(r"^/api/member_financial/v1/payments/"), "member_financial:process_payment"),
     (re.compile(r"^/api/member_financial/v1/dues/"), "member_financial:view_invoices"),
-    (re.compile(r"^/api/member_financial/v1/member_dues/"), "member_financial:adjust_dues"),
     (re.compile(r"^/api/member_financial/v1/member_accounts/recharge/"), "member_financial:process_payment"),
-    (re.compile(r"^/api/member_financial/v1/member_accounts/"), "member_financial:view_invoices"),
+    (re.compile(r"^/api/member_financial/v1/member_accounts/"), "member_financial:view_accounts"),
     (re.compile(r"^/api/member_financial/v1/lounge/upload/excel/"), "outlet:menu_edit"),
-    (re.compile(r"^/api/member_financial/v1/others/upload/excel/"), "member_financial:view_invoices"),
+    (re.compile(r"^/api/member_financial/v1/others/upload/excel/"), "member_financial:view_sales"),
 
     # Activity Log endpoints
     (re.compile(r"^/api/activity_log/v1/activity/all_user_activity/"), "activity_log:view"),
