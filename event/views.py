@@ -396,8 +396,10 @@ class EventTicketView(APIView):
             cached_response = cache.get(cache_key)
             if cached_response:
                 return Response(cached_response, status=200)
-            event_ticket = EventTicket.objects.filter(
-                is_active=True).select_related("event").order_by('id')
+            event_ticket = EventTicket.objects.filter(is_active=True).select_related("event").order_by('id')
+            event_id = request.query_params.get("event")
+            if event_id:
+                event_ticket = event_ticket.filter(event_id=event_id)
             paginator = CustomPageNumberPagination()
             # Implement pagination
             all_event_ticket = paginator.paginate_queryset(

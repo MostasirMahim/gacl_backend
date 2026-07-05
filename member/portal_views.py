@@ -16,6 +16,13 @@ from django.db.models import Sum, Q
 
 from member.models import Member
 from member.utils.scoping import get_member_for_user, is_member_user
+from event.models import Event, EventTicket
+from event.serializers import EventViewSerializer
+from member_financial_management.models import Invoice, InvoiceItem, InvoiceType
+from member_financial_management.utils.functions import generate_unique_invoice_number
+from promo_code_app.models import PromoCode, AppliedPromoCode
+from django.db import transaction
+from datetime import date
 
 
 def _envelope(code, status_str, message, **extra):
@@ -171,6 +178,24 @@ class MyInvoicesView(APIView):
         return Response(_envelope(200, "success", "My invoices", data=data))
 
 
+class MyInvoiceDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, invoice_id):
+        member, err = _require_member(request)
+        if err:
+            return err
+        from member_financial_management.models import Invoice
+        from member_financial_management import serializers as ser
+        try:
+            inv = Invoice.active_objects.select_related("invoice_type", "member").prefetch_related("invoice_items").get(id=invoice_id, member=member)
+        except Invoice.DoesNotExist:
+            return Response(_envelope(404, "failed", "Invoice not found"), status=status.HTTP_404_NOT_FOUND)
+        
+        data = ser.InvoiceForViewSerializer(inv).data
+        return Response(_envelope(200, "success", "My invoice detail", data=data))
+
+
 class PayMyInvoiceView(APIView):
     """
     Member pays one of their own invoices. Two modes:
@@ -208,11 +233,12 @@ class PayMyInvoiceView(APIView):
 
         # online: try to initiate an SSLCommerz session if available
         try:
-            from member_financial_management.services.sslcommerz_service import (
-                initiate_payment_session)
-            session = initiate_payment_session(
-                invoice=invoice, member=member,
-                amount=invoice.balance_due)
+            from finance_core.services.sslcommerz_service import initiate_session
+            session = initiate_session(
+                invoice=invoice,
+                amount=invoice.balance_due,
+                customer_name=f"{member.first_name} {member.last_name}" if member else "Member",
+            )
             return Response(_envelope(200, "success",
                             "Payment session initiated",
                             data={"gateway_url": session.get("GatewayPageURL")
@@ -227,3 +253,98 @@ class PayMyInvoiceView(APIView):
                                   "amount": str(invoice.balance_due),
                                   "mode": "online",
                                   "gateway_url": None}))
+
+
+class AvailableEventsView(APIView):
+    """
+    Member portal: View all active events
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        member, err = _require_member(request)
+        if err:
+            return err
+        qs = Event.objects.filter(is_active=True).select_related("venue", "organizer").prefetch_related("event_media").order_by("-id")
+        data = EventViewSerializer(qs, many=True).data
+        return Response(_envelope(200, "success", "Available events", data=data))
+
+
+class PortalEventTicketBuyView(APIView):
+    """
+    Member portal: Buy an event ticket for the logged-in member.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        member, err = _require_member(request)
+        if err:
+            return err
+
+        ticket_id = request.data.get("ticket_id")
+        promo_code_str = request.data.get("promo_code")
+
+        try:
+            event_ticket = EventTicket.objects.get(id=ticket_id, status="available")
+        except EventTicket.DoesNotExist:
+            return Response(_envelope(404, "failed", "Ticket not found or unavailable"), status=status.HTTP_404_NOT_FOUND)
+
+        discount = 0
+        total_amount = event_ticket.price
+        promo_code = None
+
+        if promo_code_str:
+            try:
+                promo_code = PromoCode.objects.get(promo_code=promo_code_str)
+                if not promo_code.is_promo_code_valid():
+                    return Response(_envelope(400, "failed", "Promo code expired or invalid"), status=status.HTTP_400_BAD_REQUEST)
+                if not promo_code.category.filter(name__iexact="event").exists():
+                    return Response(_envelope(400, "failed", "Not an event promo code"), status=status.HTTP_400_BAD_REQUEST)
+                
+                if promo_code.percentage is not None:
+                    discount = (promo_code.percentage / 100) * total_amount
+                    total_amount = total_amount - discount
+                else:
+                    discount = promo_code.amount
+                    if discount <= total_amount:
+                        total_amount = total_amount - discount
+                    else:
+                        discount = total_amount
+                        total_amount = 0
+            except PromoCode.DoesNotExist:
+                return Response(_envelope(404, "failed", "Promo code not found"), status=status.HTTP_404_NOT_FOUND)
+
+        invoice_type, _ = InvoiceType.objects.get_or_create(name="Event")
+
+        try:
+            with transaction.atomic():
+                invoice = Invoice.objects.create(
+                    currency="BDT",
+                    invoice_number=generate_unique_invoice_number(),
+                    balance_due=total_amount,
+                    paid_amount=0,
+                    issue_date=date.today(),
+                    total_amount=total_amount,
+                    is_full_paid=(total_amount <= 0),
+                    status="unpaid" if total_amount > 0 else "paid",
+                    invoice_type=invoice_type,
+                    generated_by=request.user,
+                    member=member,
+                    event=event_ticket.event,
+                    discount=discount,
+                    promo_code=promo_code if promo_code else "",
+                )
+                if promo_code:
+                    AppliedPromoCode.objects.create(
+                        discounted_amount=discount, promo_code=promo_code, used_by=member)
+                    promo_code.remaining_limit -= 1
+                    promo_code.save(update_fields=["remaining_limit"])
+
+                invoice_item = InvoiceItem.objects.create(invoice=invoice)
+                invoice_item.event_tickets.set([event_ticket.id])
+                
+            # Returning the invoice ID so they can go to the pay screen if needed
+            return Response(_envelope(200, "success", "Ticket booked successfully", data={"invoice_id": invoice.id, "balance_due": str(invoice.balance_due)}))
+            
+        except Exception as e:
+            return Response(_envelope(500, "failed", str(e)), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
