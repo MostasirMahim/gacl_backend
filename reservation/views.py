@@ -12,6 +12,8 @@ from .services.reservation_service import (
 )
 from .services.payment_service import pay_advance
 from member.models import Member
+from member.utils.scoping import (
+    scope_queryset_to_member, get_member_for_user, is_member_user)
 from core.utils.pagination import CustomPageNumberPagination
 
 logger = logging.getLogger("myapp")
@@ -95,6 +97,8 @@ class ReservationView(APIView):
     def get(self, request):
         qs = Reservation.objects.select_related(
             "member", "resource").filter(is_active=True)
+        # members only see their own reservations
+        qs = scope_queryset_to_member(qs, request.user, "member")
         st = request.query_params.get("status")
         if st:
             qs = qs.filter(status=st)
@@ -127,7 +131,10 @@ class ReservationView(APIView):
         vd = serializer.validated_data
         try:
             resource = ReservableResource.objects.get(id=vd["resource_id"])
-            member = Member.objects.get(id=vd["member_id"])
+            if is_member_user(request.user):
+                member = get_member_for_user(request.user)
+            else:
+                member = Member.objects.get(id=vd["member_id"])
             reservation = create_reservation(
                 resource=resource, member=member,
                 start_time=vd["start_time"], end_time=vd["end_time"],
@@ -162,6 +169,12 @@ class PayReservationAdvanceView(APIView):
                             errors=serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         try:
             reservation = Reservation.objects.get(id=reservation_id)
+            if is_member_user(request.user):
+                if reservation.member_id != getattr(
+                        get_member_for_user(request.user), "id", None):
+                    return Response(_envelope(403, "failed",
+                                    "You can only pay for your own reservation"),
+                                    status=status.HTTP_403_FORBIDDEN)
             invoice = pay_advance(
                 reservation=reservation,
                 payment_mode=serializer.validated_data["payment_mode"],

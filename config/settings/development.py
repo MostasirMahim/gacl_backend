@@ -3,8 +3,8 @@ import os
 # Debug mode ON for development
 DEBUG = True
 # Production settings
-SILKY_PYTHON_PROFILER = True
-SILKY_PYTHON_PROFILER_BINARY = True
+SILKY_PYTHON_PROFILER = False
+SILKY_PYTHON_PROFILER_BINARY = False
 SILKY_PYTHON_PROFILER_RESULT_PATH = os.path.join(MEDIA_ROOT, 'silk-profiles')
 os.makedirs(SILKY_PYTHON_PROFILER_RESULT_PATH, exist_ok=True)
 # Allow all hosts
@@ -49,3 +49,8 @@ REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"].append(
 
 
 print("Using development settings")
+
+# Run Celery tasks synchronously in development when no broker is available,
+# so activity-log / notification tasks don't fail on a missing Redis.
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = False

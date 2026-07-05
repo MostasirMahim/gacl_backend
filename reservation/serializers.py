@@ -12,7 +12,7 @@ class ReservableResourceSerializer(serializers.ModelSerializer):
 
 class CreateReservationSerializer(serializers.Serializer):
     resource_id = serializers.IntegerField()
-    member_id = serializers.IntegerField()
+    member_id = serializers.IntegerField(required=False, allow_null=True)
     start_time = serializers.DateTimeField()
     end_time = serializers.DateTimeField()
     party_size = serializers.IntegerField(min_value=1, default=1)

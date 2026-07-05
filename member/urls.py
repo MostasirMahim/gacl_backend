@@ -1,6 +1,21 @@
 from django.urls import path
 from . import views
+from . import portal_views
 urlpatterns = [
+    # ---- Member self-service portal (logged-in member sees only own data) ----
+    path('v1/portal/me/', portal_views.MyProfileView.as_view(),
+         name="portal_me"),
+    path('v1/portal/dashboard/', portal_views.MyDashboardView.as_view(),
+         name="portal_dashboard"),
+    path('v1/portal/orders/', portal_views.MyOrdersView.as_view(),
+         name="portal_orders"),
+    path('v1/portal/reservations/', portal_views.MyReservationsView.as_view(),
+         name="portal_reservations"),
+    path('v1/portal/invoices/', portal_views.MyInvoicesView.as_view(),
+         name="portal_invoices"),
+    path('v1/portal/invoices/<int:invoice_id>/pay/',
+         portal_views.PayMyInvoiceView.as_view(), name="portal_invoice_pay"),
+
     path('v1/members/', views.MemberView.as_view(),
          name="member_view"),
     path('v1/members/list/', views.MemberListView.as_view(),

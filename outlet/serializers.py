@@ -58,7 +58,7 @@ class OutletOrderItemInputSerializer(serializers.Serializer):
 
 class CreateOutletOrderSerializer(serializers.Serializer):
     outlet_id = serializers.IntegerField()
-    member_id = serializers.IntegerField()
+    member_id = serializers.IntegerField(required=False, allow_null=True)
     guest_id = serializers.IntegerField(required=False, allow_null=True)
     placed_by = serializers.ChoiceField(choices=["member", "waiter"], default="member")
     room_number = serializers.CharField(required=False, allow_blank=True, default="")

@@ -1750,11 +1750,24 @@ class GetUserPermissionsView(APIView):
                 "user").prefetch_related("group", "group__permission").filter(user=user)
             users_data = []
 
+            # resolve linked member (self-service) once
+            member_profile = getattr(user, "member_profile", None)
+            member_block = {
+                "is_member": bool(member_profile) and not user.is_staff and not user.is_superuser,
+                "member_id": member_profile.id if member_profile else None,
+                "member_ID": member_profile.member_ID if member_profile else None,
+                "member_name": (
+                    f"{member_profile.first_name} {member_profile.last_name}".strip()
+                    if member_profile else None),
+            }
+
             for assign_group in data:
                 user_info = {
                     "user_id": assign_group.user.id if assign_group.user else None,
                     "username": assign_group.user.username if assign_group.user else "No User",
                     "is_admin": user.is_superuser,
+                    "is_staff": user.is_staff,
+                    **member_block,
                     "groups": [],
                     "permissions": []
                 }
@@ -1777,10 +1790,18 @@ class GetUserPermissionsView(APIView):
                 description="retrieve permission get completed",
             )
             if not users_data:
+                member_profile = getattr(user, "member_profile", None)
                 user_info = {
                     "user_id":  user.id,
                     "username": user.username,
                     "is_admin": user.is_superuser,
+                    "is_staff": user.is_staff,
+                    "is_member": bool(member_profile) and not user.is_staff and not user.is_superuser,
+                    "member_id": member_profile.id if member_profile else None,
+                    "member_ID": member_profile.member_ID if member_profile else None,
+                    "member_name": (
+                        f"{member_profile.first_name} {member_profile.last_name}".strip()
+                        if member_profile else None),
                     "groups": [],
                     "permissions": []
                 }

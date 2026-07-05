@@ -241,7 +241,7 @@ class OrderItemInputSerializer(serializers.Serializer):
 
 class CreateOrderSerializer(serializers.Serializer):
     restaurant_id = serializers.IntegerField()
-    member_id = serializers.IntegerField()
+    member_id = serializers.IntegerField(required=False, allow_null=True)
     guest_id = serializers.IntegerField(required=False, allow_null=True)
     serve_location = serializers.ChoiceField(
         choices=["restaurant", "room"], default="restaurant")

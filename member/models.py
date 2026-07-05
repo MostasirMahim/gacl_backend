@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 from core.models import Gender, BLOOD_GROUPS, COUNTRY_CHOICES, MembershipType, InstituteName, MembershipStatusChoice, MaritalStatusChoice, STATUS_CHOICES, ContactTypeChoice, EmailTypeChoice, EmploymentTypeChoice, DocumentTypeChoice, AddressTypeChoice, DescendantRelationChoice, SpouseStatusChoice
 from club.models import Club
 
@@ -6,6 +7,12 @@ from club.models import Club
 class Member(models.Model):
     member_ID = models.CharField(
         max_length=200, unique=True, null=True, blank=True)  # mandatory field
+    # Login account for member self-service portal (optional; provisioned
+    # so a member can log in, place their own orders, pay, and see only
+    # their own data). Staff/admin users are NOT members.
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        blank=True, related_name="member_profile")
     first_name = models.CharField(
         max_length=200, blank=True, default="")  # mandatory field
     last_name = models.CharField(

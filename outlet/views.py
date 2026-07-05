@@ -17,6 +17,8 @@ from .services.order_service import (
 )
 from .services.billing_service import bill_outlet_order
 from member.models import Member
+from member.utils.scoping import (
+    scope_queryset_to_member, get_member_for_user, is_member_user)
 from attendance.models import Guest
 from restaurant.models import RestaurantItem
 from core.utils.pagination import CustomPageNumberPagination
@@ -135,12 +137,15 @@ class OutletOrderView(APIView):
 
     def get(self, request):
         qs = OutletOrder.objects.prefetch_related("items").filter(is_active=True)
+        # members only see their own outlet orders
+        qs = scope_queryset_to_member(qs, request.user, "member")
         st = request.query_params.get("status")
         if st:
             qs = qs.filter(status=st)
         outlet_id = request.query_params.get("outlet_id")
         if outlet_id:
             qs = qs.filter(outlet_id=outlet_id)
+        qs = qs.order_by("-created_at")
         paginator = CustomPageNumberPagination()
         page = paginator.paginate_queryset(qs, request)
         data = serializers.OutletOrderViewSerializer(page, many=True).data
@@ -154,16 +159,26 @@ class OutletOrderView(APIView):
         vd = serializer.validated_data
         try:
             outlet = Outlet.objects.get(id=vd["outlet_id"])
-            member = Member.objects.get(id=vd["member_id"])
-            guest = Guest.objects.get(id=vd["guest_id"]) if vd.get("guest_id") else None
+            if is_member_user(request.user):
+                member = get_member_for_user(request.user)
+                guest = None
+                placed_by = "member"
+                require_otp = True
+                waiter = None
+            else:
+                member = Member.objects.get(id=vd["member_id"])
+                guest = Guest.objects.get(id=vd["guest_id"]) if vd.get("guest_id") else None
+                placed_by = vd["placed_by"]
+                require_otp = vd["require_otp"]
+                waiter = request.user if vd["placed_by"] == "waiter" else None
             order = create_outlet_order(
                 outlet=outlet, member=member, items=vd["items"], guest=guest,
-                waiter=request.user if vd["placed_by"] == "waiter" else None,
-                placed_by=vd["placed_by"], room_number=vd.get("room_number", ""),
-                note=vd.get("note", ""), require_otp=vd["require_otp"],
+                waiter=waiter,
+                placed_by=placed_by, room_number=vd.get("room_number", ""),
+                note=vd.get("note", ""), require_otp=require_otp,
             )
             return Response(_envelope(201, "success",
-                            "Order created" + (" (OTP sent)" if vd["require_otp"] else ""),
+                            "Order created" + (" (OTP sent)" if require_otp else ""),
                             data=serializers.OutletOrderViewSerializer(order).data),
                             status=status.HTTP_201_CREATED)
         except OutletOrderError as e:
@@ -198,6 +213,12 @@ class VerifyOutletOtpView(APIView):
                             errors=serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         try:
             order = OutletOrder.objects.get(id=order_id)
+            if is_member_user(request.user):
+                if order.member_id != getattr(
+                        get_member_for_user(request.user), "id", None):
+                    return Response(_envelope(403, "failed",
+                                    "You can only confirm your own order"),
+                                    status=status.HTTP_403_FORBIDDEN)
             verify_otp(order=order, otp_code=serializer.validated_data["otp_code"])
             return Response(_envelope(200, "success", "Order confirmed",
                             data=serializers.OutletOrderViewSerializer(order).data))

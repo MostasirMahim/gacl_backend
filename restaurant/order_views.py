@@ -16,6 +16,8 @@ from .services.order_service import (
 )
 from .services.billing_service import bill_order
 from member.models import Member
+from member.utils.scoping import (
+    scope_queryset_to_member, get_member_for_user, is_member_user)
 from attendance.models import Guest
 from core.utils.pagination import CustomPageNumberPagination
 from django.db import transaction
@@ -95,12 +97,15 @@ class RestaurantOrderView(APIView):
 
     def get(self, request):
         qs = RestaurantOrder.objects.prefetch_related("items").filter(is_active=True)
+        # Members only see their own orders; staff/admin see all.
+        qs = scope_queryset_to_member(qs, request.user, "member")
         st = request.query_params.get("status")
         if st:
             qs = qs.filter(status=st)
         restaurant_id = request.query_params.get("restaurant_id")
         if restaurant_id:
             qs = qs.filter(restaurant_id=restaurant_id)
+        qs = qs.order_by("-created_at")
         paginator = CustomPageNumberPagination()
         page = paginator.paginate_queryset(qs, request)
         data = serializers.RestaurantOrderViewSerializer(page, many=True).data
@@ -114,20 +119,33 @@ class RestaurantOrderView(APIView):
         vd = serializer.validated_data
         try:
             restaurant = Restaurant.objects.get(id=vd["restaurant_id"])
-            member = Member.objects.get(id=vd["member_id"])
-            guest = None
-            if vd.get("guest_id"):
-                guest = Guest.objects.get(id=vd["guest_id"])
+            # Self-service: a member always orders as themselves and OTP goes
+            # to their own phone; they cannot order for another member.
+            acting_member = get_member_for_user(request.user)
+            if is_member_user(request.user):
+                member = acting_member
+                placed_by = "member"
+                guest = None
+                require_otp = True   # members must confirm via their own OTP
+                waiter = None
+            else:
+                member = Member.objects.get(id=vd["member_id"])
+                guest = None
+                if vd.get("guest_id"):
+                    guest = Guest.objects.get(id=vd["guest_id"])
+                placed_by = vd["placed_by"]
+                require_otp = vd["require_otp"]
+                waiter = request.user if vd["placed_by"] == "waiter" else None
             order = create_order(
                 restaurant=restaurant, member=member,
                 items=vd["items"], serve_location=vd["serve_location"],
                 room_number=vd.get("room_number", ""), guest=guest,
-                waiter=request.user if vd["placed_by"] == "waiter" else None,
-                placed_by=vd["placed_by"], note=vd.get("note", ""),
-                require_otp=vd["require_otp"],
+                waiter=waiter,
+                placed_by=placed_by, note=vd.get("note", ""),
+                require_otp=require_otp,
             )
             return Response(_envelope(201, "success",
-                            "Order created" + (" (OTP sent)" if vd["require_otp"] else ""),
+                            "Order created" + (" (OTP sent)" if require_otp else ""),
                             data=serializers.RestaurantOrderViewSerializer(order).data),
                             status=status.HTTP_201_CREATED)
         except OrderError as e:
@@ -159,6 +177,13 @@ class VerifyOrderOtpView(APIView):
                             errors=serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         try:
             order = RestaurantOrder.objects.get(id=order_id)
+            # a member may only confirm their own order
+            if is_member_user(request.user):
+                if order.member_id != getattr(
+                        get_member_for_user(request.user), "id", None):
+                    return Response(_envelope(403, "failed",
+                                    "You can only confirm your own order"),
+                                    status=status.HTTP_403_FORBIDDEN)
             verify_otp(order=order, otp_code=serializer.validated_data["otp_code"])
             return Response(_envelope(200, "success", "Order confirmed",
                             data=serializers.RestaurantOrderViewSerializer(order).data))
