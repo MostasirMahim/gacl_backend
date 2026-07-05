@@ -49,10 +49,34 @@ class MyProfileView(APIView):
         member, err = _require_member(request)
         if err:
             return err
-        from member.serializers import MemberSerializerForViewSingleMember
+        from member.models import Member
+        from member import serializers
         try:
-            data = MemberSerializerForViewSingleMember(member).data
-        except Exception:
+            # Re-fetch with prefetch_related for rich structure like MemberView
+            member_obj = Member.objects.select_related(
+                'marital_status', 'membership_status', 'institute_name',
+                'membership_type', 'gender'
+            ).prefetch_related(
+                "contact_numbers", "emails", "addresses", "spouse", "descendants",
+                "professions", "emergency_contacts", "companions", "credentials",
+                "certificates", "special_days"
+            ).get(member_ID=member.member_ID)
+
+            data = {
+                'member_info': serializers.MemberSerializerForViewSingleMember(member_obj).data,
+                'contact_info': serializers.MemberContactNumberViewSerializer(member_obj.contact_numbers, many=True).data,
+                'email_address': serializers.MemberEmailAddressViewSerializer(member_obj.emails, many=True).data,
+                'address': serializers.MemberAddressViewSerializer(member_obj.addresses, many=True).data,
+                'job': serializers.MemberJobViewSerializer(member_obj.professions, many=True).data,
+                'spouse': serializers.MemberSpouseViewSerializer(member_obj.spouse, many=True).data,
+                'descendant': serializers.MemberDescendantsViewSerializer(member_obj.descendants, many=True).data,
+                'emergency_contact': serializers.MemberEmergencyContactViewSerializer(member_obj.emergency_contacts, many=True).data,
+                'certificate': serializers.MemberCertificateViewSerializer(member_obj.certificates, many=True).data,
+                'companion': serializers.MemberCompanionViewSerializer(member_obj.companions, many=True).data,
+                'document': serializers.MemberDocumentsViewSerializer(member_obj.credentials, many=True).data,
+                'special_days': serializers.MemberSpecialDaysViewSerializer(member_obj.special_days, many=True).data,
+            }
+        except Exception as e:
             # fall back to a minimal profile if the rich serializer needs extras
             data = {
                 "id": member.id, "member_ID": member.member_ID,
