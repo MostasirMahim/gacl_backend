@@ -22,7 +22,7 @@ class ActivityLogAPIView(APIView):
         try:
             user = request.user
             activity_logs = ActivityLog.objects.filter(
-                user=user).order_by('-id')
+                user=user).exclude(request_method="GET").order_by('-id')
 
             if not activity_logs.exists():
                 log_request(request, "No activity logs found for this user",
