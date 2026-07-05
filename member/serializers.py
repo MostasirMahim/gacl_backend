@@ -16,7 +16,7 @@ class MemberSerializer(serializers.Serializer):
     gender = serializers.CharField()
     date_of_birth = serializers.DateField()
     batch_number = serializers.CharField(required=False)
-    anniversary_date = serializers.DateField(required=False)
+    anniversary_date = serializers.DateField(required=False, allow_null=True)
     profile_photo = serializers.ImageField(required=False)
     blood_group = serializers.CharField(required=False)
     nationality = serializers.CharField(required=False)
@@ -24,6 +24,18 @@ class MemberSerializer(serializers.Serializer):
     institute_name = serializers.CharField()
     membership_status = serializers.CharField()
     marital_status = serializers.CharField()
+
+    def to_internal_value(self, data):
+        if hasattr(data, 'copy'):
+            mutable_data = data.copy()
+        else:
+            mutable_data = dict(data)
+            
+        anniv = mutable_data.get('anniversary_date')
+        if anniv in ['', 'null', 'undefined']:
+            mutable_data['anniversary_date'] = None
+            
+        return super().to_internal_value(mutable_data)
 
     def validate_gender(self, value):
         is_exist = Gender.objects.filter(name=value).exists()

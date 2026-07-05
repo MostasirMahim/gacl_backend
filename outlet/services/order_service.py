@@ -122,7 +122,12 @@ def create_outlet_order(*, outlet, member, items, guest=None, waiter=None,
         otp = generate_otp()
         order.otp_code = otp
         order.otp_sent_at = timezone.now()
-        send_order_otp(_resolve_phone(order), otp, order.order_number)
+        email = _resolve_email(order)
+        if email:
+            from account.tasks import send_otp_email
+            send_otp_email.delay_on_commit(email, otp)
+        else:
+            send_order_otp(_resolve_phone(order), otp, order.order_number)
     else:
         order.confirmed_at = timezone.now()
     order.save()
@@ -154,6 +159,16 @@ def _resolve_phone(order) -> str:
     contacts = order.member.contact_numbers.filter(is_active=True)
     primary = contacts.filter(is_primary=True).first() or contacts.first()
     return getattr(primary, "number", "") or "" if primary else ""
+
+def _resolve_email(order) -> str:
+    if order.member is not None:
+        emails = order.member.emails.filter(is_active=True)
+        primary = emails.filter(is_primary=True).first() or emails.first()
+        if primary and getattr(primary, 'email', None):
+            return primary.email
+        if order.member.user and order.member.user.email:
+            return order.member.user.email
+    return ""
 
 
 @transaction.atomic
