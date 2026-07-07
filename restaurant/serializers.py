@@ -1,5 +1,8 @@
 from rest_framework import serializers
-from .models import RestaurantCuisineCategory, RestaurantCategory, Restaurant, RestaurantItemCategory, RestaurantItem, RestaurantItemMedia
+from .models import (
+    RestaurantCuisineCategory, RestaurantCategory, Restaurant, RestaurantItemCategory, 
+    RestaurantItem, RestaurantItemMedia, RestaurantMenuSection
+)
 from member.models import Member
 from promo_code_app.models import PromoCode
 import pdb
@@ -43,6 +46,21 @@ class RestaurantSerializer(serializers.Serializer):
     restaurant_type = serializers.PrimaryKeyRelatedField(
         queryset=RestaurantCategory.objects.all())
 
+    # Dynamic layout and banner fields
+    slug = serializers.SlugField(required=False, allow_null=True)
+    banner_bg_image = serializers.ImageField(required=False, allow_null=True)
+    banner_title = serializers.CharField(required=False, allow_blank=True, default="")
+    banner_description = serializers.CharField(required=False, allow_blank=True, default="")
+    about_text = serializers.CharField(required=False, allow_blank=True, default="")
+    meta_title = serializers.CharField(required=False, allow_blank=True, default="")
+    meta_description = serializers.CharField(required=False, allow_blank=True, default="")
+    delivery_banner_title = serializers.CharField(required=False, allow_blank=True, default="30 Minutes Delivery!")
+    delivery_banner_text = serializers.CharField(required=False, allow_blank=True, default="")
+    reservation_banner_title = serializers.CharField(required=False, allow_blank=True, default="Reservation Your Favorite Private Table")
+    reservation_banner_text = serializers.CharField(required=False, allow_blank=True, default="")
+    reservation_banner_launch_menu = serializers.CharField(required=False, allow_blank=True, default="30+ items")
+    reservation_banner_dinner_menu = serializers.CharField(required=False, allow_blank=True, default="50+ items")
+
     def validate_name(self, value):
         if Restaurant.objects.filter(name=value).exists():
             raise serializers.ValidationError(
@@ -70,7 +88,10 @@ class RestaurantUpdateSerializer(serializers.ModelSerializer):
             "name", "description", "address", "city", "state", "postal_code",
             "phone", "operating_hours", "capacity", "status", "opening_time",
             "closing_time", "booking_fees_per_seat", "cuisine_type",
-            "restaurant_type"]}
+            "restaurant_type", "slug", "banner_bg_image", "banner_title",
+            "banner_description", "about_text", "meta_title", "meta_description",
+            "delivery_banner_title", "delivery_banner_text", "reservation_banner_title",
+            "reservation_banner_text", "reservation_banner_launch_menu", "reservation_banner_dinner_menu", "footer_config"]}
 
     def validate_name(self, value):
         qs = Restaurant.objects.filter(name=value)
@@ -100,6 +121,19 @@ class RestaurantItemSerializer(serializers.Serializer):
     restaurant = serializers.PrimaryKeyRelatedField(
         queryset=Restaurant.objects.filter(is_active=True))
 
+    # Additional fields to support front-end layout
+    slug = serializers.SlugField(required=False, allow_null=True)
+    sku = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    stock = serializers.IntegerField(required=False, default=0)
+    half_price = serializers.DecimalField(required=False, allow_null=True, max_digits=10, decimal_places=2)
+    free_bonus = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    sub_items = serializers.CharField(required=False, allow_blank=True)
+    tags = serializers.JSONField(required=False, default=list)
+    additional_info = serializers.JSONField(required=False, default=dict)
+    menu_section = serializers.PrimaryKeyRelatedField(
+        queryset=RestaurantMenuSection.objects.filter(is_active=True), required=False, allow_null=True, default=None)
+    cover_image = serializers.ImageField(required=False, allow_null=True)
+
     def validate_name(self, value):
         if RestaurantItem.objects.filter(name=value).exists():
             raise serializers.ValidationError(f"{value} already exists")
@@ -113,12 +147,14 @@ class RestaurantItemSerializer(serializers.Serializer):
 class ItemMediaSerializer(serializers.ModelSerializer):
     class Meta:
         model = RestaurantItemMedia
-        fields = ['image']
+        fields = ['id', 'image']
 
 
 class RestaurantItemForViewSerializer(serializers.ModelSerializer):
     restaurant = serializers.CharField()
     category = serializers.CharField()
+    category_id = serializers.ReadOnlyField(source="category.id")
+    menu_section_id = serializers.ReadOnlyField(source="menu_section.id")
     item_media = ItemMediaSerializer(many=True, read_only=True)
 
     class Meta:
@@ -134,7 +170,10 @@ class RestaurantItemUpdateSerializer(serializers.ModelSerializer):
         exclude = ["is_active", "created_at", "updated_at"]
         extra_kwargs = {"restaurant": {"required": False},
                         "category": {"required": False},
-                        "name": {"required": False}}
+                        "name": {"required": False},
+                        "menu_section": {"required": False},
+                        "cover_image": {"required": False}}
+
 
 
 class RestaurantItemMediaSerializer(serializers.Serializer):

@@ -537,7 +537,11 @@ class RestaurantItemView(APIView):
                     severity_level="info",
                     description="User created a new restaurant item",
                 )
-                cache.delete_pattern("restaurant_items::*")
+                try:
+                    cache.delete_pattern("restaurant_items::*")
+                    cache.delete_pattern("restaurant_public_menu::*")
+                except Exception:
+                    pass
                 return Response({
                     "code": 201,
                     "status": "success",
@@ -1122,6 +1126,7 @@ class RestaurantDetailView(APIView):
             serializer.save()
             try:
                 cache.delete_pattern("restaurants::*")
+                cache.delete_pattern("restaurant_public_menu::*")
             except Exception:
                 pass
             return Response({"code": 200, "status": "success",
@@ -1141,10 +1146,11 @@ class RestaurantDetailView(APIView):
         obj.save(update_fields=["is_active", "updated_at"])
         try:
             cache.delete_pattern("restaurants::*")
+            cache.delete_pattern("restaurant_public_menu::*")
         except Exception:
             pass
         return Response({"code": 200, "status": "success",
-                         "message": "Restaurant deactivated"})
+                          "message": "Restaurant deactivated"})
 
 
 class RestaurantItemDetailView(APIView):
@@ -1182,6 +1188,7 @@ class RestaurantItemDetailView(APIView):
             serializer.save()
             try:
                 cache.delete_pattern("restaurant_items::*")
+                cache.delete_pattern("restaurant_public_menu::*")
             except Exception:
                 pass
             return Response({"code": 200, "status": "success",
@@ -1201,7 +1208,139 @@ class RestaurantItemDetailView(APIView):
         obj.save(update_fields=["is_active", "updated_at"])
         try:
             cache.delete_pattern("restaurant_items::*")
+            cache.delete_pattern("restaurant_public_menu::*")
         except Exception:
             pass
         return Response({"code": 200, "status": "success",
-                         "message": "Item deleted"})
+                          "message": "Item deleted"})
+
+
+class RestaurantPublicMenuBySlugView(APIView):
+    permission_classes = []  # Public endpoint
+
+    def get(self, request, slug):
+        try:
+            cache_key = f"restaurant_public_menu::{slug}"
+            cached_response = cache.get(cache_key)
+            if cached_response:
+                return Response(cached_response, status=status.HTTP_200_OK)
+
+            restaurant = Restaurant.objects.prefetch_related(
+                "menu_sections", "testimonials"
+            ).select_related("cuisine_type", "restaurant_type").get(slug=slug, is_active=True)
+
+            # Serialize restaurant details
+            restaurant_data = serializers.RestaurantViewSerializer(restaurant).data
+
+            # Fetch testimonials using dynamic import
+            from portal_management.serializers import RestaurantTestimonialSerializer
+            testimonials = restaurant.testimonials.filter(is_active=True).order_by("-id")
+            testimonials_data = RestaurantTestimonialSerializer(testimonials, many=True).data
+
+            # Fetch and group sections and items
+            sections = restaurant.menu_sections.filter(is_active=True).order_by("order")
+            sections_data = []
+            for sec in sections:
+                items = RestaurantItem.objects.filter(
+                    restaurant=restaurant, menu_section=sec, is_active=True
+                ).prefetch_related("item_media").order_by("id")
+                
+                items_data = serializers.RestaurantItemForViewSerializer(items, many=True).data
+                
+                sections_data.append({
+                    "id": sec.id,
+                    "title": sec.title,
+                    "cover_image": sec.cover_image.url if sec.cover_image else None,
+                    "description": sec.description,
+                    "order": sec.order,
+                    "layout_type": sec.layout_type,
+                    "items": items_data
+                })
+
+            final_data = {
+                "restaurant": restaurant_data,
+                "sections": sections_data,
+                "testimonials": testimonials_data
+            }
+
+            final_response = {
+                "code": 200,
+                "status": "success",
+                "message": "Public menu data fetched successfully",
+                "data": final_data
+            }
+
+            cache.set(cache_key, final_response, timeout=60 * 10)  # cache for 10 minutes
+            return Response(final_response, status=status.HTTP_200_OK)
+
+        except Restaurant.DoesNotExist:
+            return Response({
+                "code": 404,
+                "status": "failed",
+                "message": "Restaurant not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.exception(str(e))
+            return Response({
+                "code": 500,
+                "status": "failed",
+                "message": "Something went wrong",
+                "errors": {"server_error": [str(e)]}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class RestaurantPublicItemDetailBySlugView(APIView):
+    permission_classes = []  # Public endpoint
+
+    def get(self, request, restaurant_slug, item_slug):
+        try:
+            item = RestaurantItem.objects.select_related(
+                "restaurant", "category", "menu_section"
+            ).prefetch_related("item_media").get(
+                restaurant__slug=restaurant_slug, slug=item_slug, is_active=True
+            )
+
+            # Fetch active reviews using dynamic import
+            from portal_management.serializers import RestaurantItemReviewSerializer
+            reviews = item.reviews.filter(is_active=True).order_by("-id")
+            reviews_data = RestaurantItemReviewSerializer(reviews, many=True).data
+
+            item_data = serializers.RestaurantItemForViewSerializer(item).data
+            
+            # Fetch related items (other items in same restaurant)
+            related_items = RestaurantItem.objects.filter(
+                restaurant=item.restaurant, is_active=True
+            ).exclude(id=item.id)[:4]
+            related_data = serializers.RestaurantItemForViewSerializer(related_items, many=True).data
+
+            restaurant_data = serializers.RestaurantViewSerializer(item.restaurant).data
+
+            final_data = {
+                "item": item_data,
+                "restaurant": restaurant_data,
+                "reviews": reviews_data,
+                "related_items": related_data
+            }
+
+            return Response({
+                "code": 200,
+                "status": "success",
+                "message": "Item details fetched successfully",
+                "data": final_data
+            }, status=status.HTTP_200_OK)
+
+        except RestaurantItem.DoesNotExist:
+            return Response({
+                "code": 404,
+                "status": "failed",
+                "message": "Item not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.exception(str(e))
+            return Response({
+                "code": 500,
+                "status": "failed",
+                "message": "Something went wrong",
+                "errors": {"server_error": [str(e)]}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

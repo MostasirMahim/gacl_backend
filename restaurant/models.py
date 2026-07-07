@@ -51,6 +51,23 @@ class Restaurant(RestaurantBaseModel):
         RestaurantCuisineCategory, on_delete=models.PROTECT, related_name="restaurant_cuisine")
     restaurant_type = models.ForeignKey(
         RestaurantCategory, on_delete=models.PROTECT, related_name="restaurant_category")
+
+    # Dynamic layout and banner fields
+    slug = models.SlugField(max_length=350, unique=True, blank=True, null=True)
+    banner_bg_image = models.ImageField(upload_to="restaurant/banners/", blank=True, null=True)
+    banner_title = models.CharField(max_length=300, blank=True, default="")
+    banner_description = models.TextField(blank=True, default="")
+    about_text = models.TextField(blank=True, default="")
+    meta_title = models.CharField(max_length=300, blank=True, default="")
+    meta_description = models.TextField(blank=True, default="")
+    delivery_banner_title = models.CharField(max_length=200, default="30 Minutes Delivery!")
+    delivery_banner_text = models.TextField(blank=True, default="")
+    reservation_banner_title = models.CharField(max_length=200, default="Reservation Your Favorite Private Table")
+    reservation_banner_text = models.TextField(blank=True, default="")
+    reservation_banner_launch_menu = models.CharField(max_length=100, default="30+ items")
+    reservation_banner_dinner_menu = models.CharField(max_length=100, default="50+ items")
+    footer_config = models.JSONField(default=dict, blank=True)
+
     # managers
     objects = models.Manager()
     active_objects = ActiveManager()
@@ -66,6 +83,23 @@ class RestaurantItemCategory(RestaurantBaseModel):
         return self.name
 
 
+class RestaurantMenuSection(RestaurantBaseModel):
+    restaurant = models.ForeignKey(
+        Restaurant, on_delete=models.CASCADE, related_name="menu_sections")
+    title = models.CharField(max_length=300)
+    cover_image = models.ImageField(upload_to="restaurant/sections/", blank=True, null=True)
+    description = models.TextField(blank=True, default="")
+    order = models.PositiveIntegerField(default=0)
+    layout_type = models.CharField(max_length=50, choices=[('default', 'Default/Tabs'), ('left', 'Left Column'), ('right', 'Right Column')], default='default')
+
+    class Meta:
+        ordering = ["order"]
+        unique_together = ("restaurant", "title")
+
+    def __str__(self):
+        return f"{self.restaurant.name} - {self.title}"
+
+
 class RestaurantItem(RestaurantBaseModel):
     name = models.CharField(max_length=300, unique=True)
     description = models.TextField(blank=True, default="")
@@ -73,12 +107,25 @@ class RestaurantItem(RestaurantBaseModel):
     unit = models.CharField(max_length=100)
     unit_cost = models.DecimalField(max_digits=6, decimal_places=2)
     selling_price = models.DecimalField(max_digits=6, decimal_places=2)
+    cover_image = models.ImageField(upload_to="restaurant/items/covers/", null=True, blank=True)
 
     # relations
     category = models.ForeignKey(
         RestaurantItemCategory, on_delete=models.PROTECT, related_name="item_category")
     restaurant = models.ForeignKey(
         Restaurant, on_delete=models.PROTECT, related_name="restaurant_item_restaurant")
+
+    # Additional fields to support front-end layout
+    slug = models.SlugField(max_length=350, unique=True, blank=True, null=True)
+    sku = models.CharField(max_length=100, blank=True, null=True)
+    stock = models.IntegerField(default=0)
+    half_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    free_bonus = models.CharField(max_length=250, blank=True, null=True, default="")
+    sub_items = models.CharField(max_length=500, blank=True, default="")
+    tags = models.JSONField(default=list, blank=True)
+    additional_info = models.JSONField(default=dict, blank=True)
+    menu_section = models.ForeignKey(
+        RestaurantMenuSection, on_delete=models.SET_NULL, null=True, blank=True, related_name="items")
 
     def __str__(self):
         return self.name
@@ -91,6 +138,31 @@ class RestaurantItemMedia(RestaurantBaseModel):
 
     def __str__(self):
         return self.item.name
+
+
+class RestaurantTestimonial(RestaurantBaseModel):
+    restaurant = models.ForeignKey(
+        Restaurant, on_delete=models.CASCADE, related_name="testimonials")
+    name = models.CharField(max_length=300)
+    designation = models.CharField(max_length=200, blank=True, default="")
+    rating = models.PositiveSmallIntegerField(default=5)
+    title = models.CharField(max_length=300, blank=True, default="")
+    text = models.TextField()
+
+    def __str__(self):
+        return f"{self.restaurant.name} - {self.name}"
+
+
+class RestaurantItemReview(RestaurantBaseModel):
+    item = models.ForeignKey(
+        RestaurantItem, on_delete=models.CASCADE, related_name="reviews")
+    member = models.ForeignKey(
+        "member.Member", on_delete=models.PROTECT, related_name="restaurant_item_reviews")
+    rating = models.PositiveSmallIntegerField(default=5)
+    review_text = models.TextField()
+
+    def __str__(self):
+        return f"{self.item.name} - {self.member.user.username} ({self.rating} stars)"
 
 
 # ============================================================

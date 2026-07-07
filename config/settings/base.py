@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'payroll',
     'vendor',
     'finance_core',
+    'portal_management',
 ]
 
 # Middleware

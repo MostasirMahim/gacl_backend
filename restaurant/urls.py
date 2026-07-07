@@ -50,4 +50,8 @@ urlpatterns = [
          name="restaurant_inventory_movements"),
     path("v1/restaurants/items/recipes/", order_views.RestaurantItemRecipeView.as_view(),
          name="restaurant_item_recipes"),
+
+    # Public views for portal
+    path("v1/public/by-slug/<slug:slug>/menu/", views.RestaurantPublicMenuBySlugView.as_view(), name="restaurant_public_menu_slug"),
+    path("v1/public/by-slug/<slug:restaurant_slug>/items/<slug:item_slug>/detail/", views.RestaurantPublicItemDetailBySlugView.as_view(), name="restaurant_public_item_slug"),
 ]
