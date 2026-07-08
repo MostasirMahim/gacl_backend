@@ -157,12 +157,15 @@ class RestaurantItemReview(RestaurantBaseModel):
     item = models.ForeignKey(
         RestaurantItem, on_delete=models.CASCADE, related_name="reviews")
     member = models.ForeignKey(
-        "member.Member", on_delete=models.PROTECT, related_name="restaurant_item_reviews")
+        "member.Member", on_delete=models.SET_NULL, null=True, blank=True, related_name="restaurant_item_reviews")
+    reviewer_name = models.CharField(max_length=200, blank=True, default="Admin")
+    reviewer_avatar = models.ImageField(upload_to="restaurant/reviews/", blank=True, null=True)
     rating = models.PositiveSmallIntegerField(default=5)
     review_text = models.TextField()
 
     def __str__(self):
-        return f"{self.item.name} - {self.member.user.username} ({self.rating} stars)"
+        name = self.member.user.username if self.member else self.reviewer_name
+        return f"{self.item.name} - {name} ({self.rating} stars)"
 
 
 # ============================================================

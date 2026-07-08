@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, parsers
 from django.shortcuts import get_object_or_404
 from django.core.cache import cache
 import logging
@@ -225,11 +225,13 @@ class RestaurantTestimonialDetailView(APIView):
 
 class RestaurantItemReviewListView(APIView):
     permission_classes = [IsAuthenticated, RestaurantManagementPermission]
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser]
 
     def get(self, request, restaurant_id):
+        """Return ALL reviews (active + inactive) for admin moderation."""
         try:
             restaurant = get_object_or_404(Restaurant, id=restaurant_id, is_active=True)
-            reviews = RestaurantItemReview.objects.filter(item__restaurant=restaurant, is_active=True).order_by("-id")
+            reviews = RestaurantItemReview.objects.filter(item__restaurant=restaurant).order_by("-id")
             serializer = serializers.RestaurantItemReviewSerializer(reviews, many=True)
             return Response({
                 "code": 200,
@@ -237,6 +239,46 @@ class RestaurantItemReviewListView(APIView):
                 "message": "Reviews fetched successfully",
                 "data": serializer.data
             }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(str(e))
+            return Response({
+                "code": 500,
+                "status": "failed",
+                "message": "Something went wrong",
+                "errors": {"server_error": [str(e)]}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def post(self, request, restaurant_id):
+        """Admin creates a review manually for any item of this restaurant."""
+        try:
+            restaurant = get_object_or_404(Restaurant, id=restaurant_id, is_active=True)
+            item_id = request.data.get("item")
+            if not item_id:
+                return Response({
+                    "code": 400, "status": "failed",
+                    "message": "item field is required.",
+                    "errors": {"item": ["This field is required."]}
+                }, status=status.HTTP_400_BAD_REQUEST)
+            item = get_object_or_404(RestaurantItem, id=item_id, restaurant=restaurant)
+            serializer = serializers.AdminReviewCreateSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save(item=item, member=None)
+                try:
+                    cache.delete_pattern("restaurant_public_menu::*")
+                except Exception:
+                    pass
+                return Response({
+                    "code": 201,
+                    "status": "success",
+                    "message": "Review created successfully",
+                    "data": serializer.data
+                }, status=status.HTTP_201_CREATED)
+            return Response({
+                "code": 400,
+                "status": "failed",
+                "message": "Bad request",
+                "errors": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.exception(str(e))
             return Response({
@@ -287,10 +329,12 @@ class ItemReviewCreateView(APIView):
 
 class RestaurantItemReviewDetailView(APIView):
     permission_classes = [IsAuthenticated, RestaurantManagementPermission]
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser]
 
     def patch(self, request, review_id):
+        """Admin can edit any review regardless of active/inactive status."""
         try:
-            review = get_object_or_404(RestaurantItemReview, id=review_id, is_active=True)
+            review = get_object_or_404(RestaurantItemReview, id=review_id)
             serializer = serializers.RestaurantItemReviewSerializer(review, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
