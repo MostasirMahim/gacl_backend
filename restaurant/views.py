@@ -1289,6 +1289,69 @@ class RestaurantPublicMenuBySlugView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+class GuestMemberLookupView(APIView):
+    """
+    Public endpoint: look up a member by their member_ID string.
+    Returns only safe, non-sensitive display fields + the DB pk (needed
+    to submit a guest order).  No authentication required — OTP on the
+    member's registered email is the actual security gate.
+    """
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        member_id_str = request.query_params.get("member_id", "").strip()
+        if not member_id_str:
+            return Response({
+                "code": 400,
+                "status": "failed",
+                "message": "member_id query parameter is required",
+                "errors": {"member_id": ["This field is required."]}
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            member = Member.objects.prefetch_related("emails").get(
+                member_ID=member_id_str, is_active=True)
+        except Member.DoesNotExist:
+            return Response({
+                "code": 404,
+                "status": "failed",
+                "message": "No active member found with this Member ID"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.exception(str(e))
+            return Response({
+                "code": 500,
+                "status": "failed",
+                "message": "Something went wrong",
+                "errors": {"server_error": [str(e)]}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Only expose safe fields — no phone, no address, no financials
+        primary_email = member.emails.filter(is_active=True, is_primary=True).first()
+        email_display = ""
+        if primary_email:
+            # Mask the email for display: jo***@example.com
+            raw = primary_email.email
+            at = raw.find("@")
+            if at > 2:
+                email_display = raw[:2] + "***" + raw[at:]
+            else:
+                email_display = "***" + raw[at:]
+
+        return Response({
+            "code": 200,
+            "status": "success",
+            "message": "Member found",
+            "data": {
+                "id": member.id,                     # DB pk — used in order payload
+                "member_ID": member.member_ID,
+                "full_name": f"{member.first_name} {member.last_name}".strip(),
+                "email_hint": email_display,         # masked for display only
+            }
+        }, status=status.HTTP_200_OK)
+
+
 class RestaurantPublicItemDetailBySlugView(APIView):
     permission_classes = []  # Public endpoint
 

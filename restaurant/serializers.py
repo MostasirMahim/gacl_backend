@@ -357,3 +357,28 @@ class RestaurantItemRecipeSerializer(serializers.ModelSerializer):
     class Meta:
         model = RestaurantItemRecipe
         fields = ["id", "item", "inventory_item", "quantity_per_unit"]
+
+
+# ---- Guest (unauthenticated) order serializers ----
+
+class GuestCreateOrderSerializer(serializers.Serializer):
+    """Validates the public guest order-placement payload."""
+    member_id = serializers.IntegerField()
+    restaurant_id = serializers.IntegerField()
+    serve_location = serializers.ChoiceField(
+        choices=["restaurant", "room"], default="restaurant")
+    room_number = serializers.CharField(
+        required=False, allow_blank=True, default="")
+    note = serializers.CharField(required=False, allow_blank=True, default="")
+    items = OrderItemInputSerializer(many=True)
+
+    def validate_items(self, value):
+        if not value:
+            raise serializers.ValidationError("At least one item is required.")
+        return value
+
+
+class GuestVerifyOtpSerializer(serializers.Serializer):
+    """Validates the public guest OTP-confirm payload."""
+    otp_code = serializers.CharField(max_length=6)
+    member_id = serializers.IntegerField()

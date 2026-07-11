@@ -54,4 +54,11 @@ urlpatterns = [
     # Public views for portal
     path("v1/public/by-slug/<slug:slug>/menu/", views.RestaurantPublicMenuBySlugView.as_view(), name="restaurant_public_menu_slug"),
     path("v1/public/by-slug/<slug:restaurant_slug>/items/<slug:item_slug>/detail/", views.RestaurantPublicItemDetailBySlugView.as_view(), name="restaurant_public_item_slug"),
+
+    # Guest checkout: public member lookup by member_ID (no auth required)
+    path("v1/public/member-lookup/", views.GuestMemberLookupView.as_view(), name="restaurant_guest_member_lookup"),
+
+    # Guest checkout: place order / verify OTP (no auth required — OTP is the gate)
+    path("v1/public/guest/orders/", order_views.GuestOrderCreateView.as_view(), name="restaurant_guest_order_create"),
+    path("v1/public/guest/orders/<int:order_id>/verify-otp/", order_views.GuestOrderVerifyOtpView.as_view(), name="restaurant_guest_order_verify_otp"),
 ]

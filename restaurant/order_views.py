@@ -320,3 +320,119 @@ class RestaurantItemRecipeView(APIView):
                             data=serializer.data), status=status.HTTP_201_CREATED)
         return Response(_envelope(400, "failed", "Bad request",
                         errors=serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+
+
+# ============================================================
+# PUBLIC GUEST ORDER ENDPOINTS  (no authentication required)
+# Security gate: OTP sent to the member's registered email.
+# ============================================================
+
+class GuestOrderCreateView(APIView):
+    """
+    POST /api/restaurants/v1/public/guest/orders/
+    Place a restaurant order on behalf of a verified member without
+    requiring a login session.  OTP is sent to the member's email.
+
+    Payload:
+        member_id       int     DB pk of the member (from member-lookup endpoint)
+        restaurant_id   int
+        serve_location  str     "restaurant" | "room"
+        room_number     str     required when serve_location == "room"
+        note            str     optional
+        items           list    [{item_id, quantity}]
+    """
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        serializer = serializers.GuestCreateOrderSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                _envelope(400, "failed", "Bad request", errors=serializer.errors),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        vd = serializer.validated_data
+        try:
+            restaurant = Restaurant.objects.get(id=vd["restaurant_id"], is_active=True)
+            member = Member.objects.get(id=vd["member_id"], is_active=True)
+            order = create_order(
+                restaurant=restaurant,
+                member=member,
+                items=vd["items"],
+                serve_location=vd["serve_location"],
+                room_number=vd.get("room_number", ""),
+                placed_by="waiter",   # closest semantic: ordered on-behalf
+                note=vd.get("note", ""),
+                require_otp=True,     # always required for guest — OTP is the auth
+            )
+            return Response(
+                _envelope(201, "success", "Order placed. OTP sent to member's email.",
+                          data=serializers.RestaurantOrderViewSerializer(order).data),
+                status=status.HTTP_201_CREATED,
+            )
+        except Restaurant.DoesNotExist:
+            return Response(_envelope(404, "failed", "Restaurant not found"),
+                            status=status.HTTP_404_NOT_FOUND)
+        except Member.DoesNotExist:
+            return Response(_envelope(404, "failed", "Member not found"),
+                            status=status.HTTP_404_NOT_FOUND)
+        except OrderError as e:
+            return Response(_envelope(400, "failed", str(e)),
+                            status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.exception(str(e))
+            return Response(
+                _envelope(500, "failed", "Something went wrong",
+                          errors={"server_error": [str(e)]}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class GuestOrderVerifyOtpView(APIView):
+    """
+    POST /api/restaurants/v1/public/guest/orders/<order_id>/verify-otp/
+    Confirm the guest order by submitting the OTP that was emailed to the member.
+
+    Payload:
+        otp_code    str     6-digit code
+        member_id   int     DB pk — extra guard to ensure caller knows the member
+    """
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request, order_id):
+        serializer = serializers.GuestVerifyOtpSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                _envelope(400, "failed", "Bad request", errors=serializer.errors),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        vd = serializer.validated_data
+        try:
+            order = RestaurantOrder.objects.get(id=order_id, is_active=True)
+
+            # Extra guard: member_id must match the order's member
+            if order.member_id != vd["member_id"]:
+                return Response(
+                    _envelope(403, "failed", "Member ID does not match this order"),
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            verify_otp(order=order, otp_code=vd["otp_code"])
+            return Response(
+                _envelope(200, "success", "Order confirmed successfully.",
+                          data=serializers.RestaurantOrderViewSerializer(order).data),
+            )
+        except RestaurantOrder.DoesNotExist:
+            return Response(_envelope(404, "failed", "Order not found"),
+                            status=status.HTTP_404_NOT_FOUND)
+        except OrderError as e:
+            return Response(_envelope(400, "failed", str(e)),
+                            status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.exception(str(e))
+            return Response(
+                _envelope(500, "failed", "Something went wrong",
+                          errors={"server_error": [str(e)]}),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
