@@ -34,6 +34,12 @@ from .tasks import delete_members_cache, delete_members_specific_cache
 from django.http import Http404
 logger = logging.getLogger("myapp")
 from .services.member_delete_services import MemberBulkDeleteActionService,MemberSingleDeleteActionService
+from django.contrib.auth import get_user_model
+from account.models import GroupModel, PermissonModel, AssignGroupPermission
+from account.tasks import send_member_credentials_email
+from .constants import MEMBER_PERMISSIONS
+from .utils.phone import normalize_phone
+from .utils.permission_classes import MemberApprovePermission, MemberRejectPermission
 
 
 class MemberView(APIView):
@@ -2999,6 +3005,225 @@ class MemberHardSingleDeleteView(APIView):
                 "error",
                 "A user tried to permanently delete a member but an error occurred."
             )
+            return Response({
+                "code": 500,
+                "status": "failed",
+                "message": "Something went wrong",
+                "errors": {"server_error": [str(e)]}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ApproveMemberView(APIView):
+    """
+    POST /api/member/v1/members/<int:member_id>/approve/
+
+    Approves a pending Member application: creates the CustomUser login
+    account (username = member_ID, password = normalized primary phone
+    number, role = MEMBER), links it to the Member, flips
+    application_status to "approved", adds the user to the club_member
+    group, and emails the new credentials. See master_update.md Part 3.2.
+
+    Note on the URL id: account/protected_urls.py registers this path
+    with a numeric (`\\d+`) pattern, so `member_id` here is the Member's
+    numeric primary key (consistent with other endpoints like
+    hard_delete/<int:pk>/), not the human-readable member_ID string.
+    """
+    permission_classes = [IsAuthenticated, MemberApprovePermission]
+
+    def post(self, request, member_id):
+        try:
+            member = Member.objects.filter(id=member_id).first()
+            if not member:
+                return Response({
+                    "code": 404,
+                    "status": "failed",
+                    "message": "Member not found",
+                    "errors": {"member": ["No member with this id exists"]}
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            if member.application_status != "pending":
+                return Response({
+                    "code": 400,
+                    "status": "failed",
+                    "message": "Member is not pending approval",
+                    "errors": {
+                        "application_status": [
+                            f"Member application_status is '{member.application_status}', "
+                            "must be 'pending' to approve."
+                        ]
+                    }
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            if member.user_id:
+                return Response({
+                    "code": 400,
+                    "status": "failed",
+                    "message": "Member already has a login account",
+                    "errors": {"member": ["This member has already been approved."]}
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            primary_email_obj = member.emails.filter(is_primary=True).first()
+            if not primary_email_obj:
+                return Response({
+                    "code": 400,
+                    "status": "failed",
+                    "message": "Member has no primary email on file",
+                    "errors": {
+                        "email": [
+                            "A primary email is required to deliver login "
+                            "credentials and to support future password resets."
+                        ]
+                    }
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            primary_phone_obj = member.contact_numbers.filter(
+                is_primary=True).first()
+            if not primary_phone_obj or not primary_phone_obj.number:
+                return Response({
+                    "code": 400,
+                    "status": "failed",
+                    "message": "Member has no primary contact number on file",
+                    "errors": {
+                        "contact_number": [
+                            "A primary contact number is required; it becomes "
+                            "the member's initial temporary password."
+                        ]
+                    }
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            primary_email = primary_email_obj.email
+            temp_password = normalize_phone(primary_phone_obj.number)
+
+            User = get_user_model()
+            if User.objects.filter(username=member.member_ID).exists():
+                return Response({
+                    "code": 400,
+                    "status": "failed",
+                    "message": "A login account with this username already exists",
+                    "errors": {
+                        "member_ID": [
+                            f"A CustomUser with username '{member.member_ID}' "
+                            "already exists. Resolve this conflict before approving."
+                        ]
+                    }
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=member.member_ID,
+                    password=temp_password,
+                    email=primary_email,
+                    first_name=member.first_name,
+                    last_name=member.last_name,
+                    role="MEMBER",
+                    is_staff=False,
+                    is_superuser=False,
+                    must_change_password=True,
+                )
+
+                member.user = user
+                member.application_status = "approved"
+                member.save(update_fields=["user", "application_status"])
+
+                group, _ = GroupModel.objects.get_or_create(name="club_member")
+                for pname in MEMBER_PERMISSIONS:
+                    perm, _ = PermissonModel.objects.get_or_create(name=pname)
+                    group.permission.add(perm)
+                assign, _ = AssignGroupPermission.objects.get_or_create(user=user)
+                assign.group.add(group)
+
+            send_member_credentials_email.delay_on_commit(
+                email=primary_email,
+                first_name=member.first_name,
+                username=member.member_ID,
+                temp_password=temp_password,
+            )
+
+            log_request(request, "Member approved", "info",
+                        f"Member {member.member_ID} was approved and a login account was created")
+            delete_members_cache.delay()
+            delete_members_specific_cache.delay(member.member_ID)
+
+            return Response({
+                "code": 200,
+                "status": "success",
+                "message": "Member approved and login credentials sent",
+                "data": {
+                    "member_id": member.id,
+                    "member_ID": member.member_ID,
+                    "application_status": member.application_status,
+                    "username": user.username,
+                }
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(str(e))
+            log_request(request, "Member approval failed", "error",
+                        "An error occurred while approving a member")
+            return Response({
+                "code": 500,
+                "status": "failed",
+                "message": "Something went wrong",
+                "errors": {"server_error": [str(e)]}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class RejectMemberView(APIView):
+    """
+    POST /api/member/v1/members/<int:member_id>/reject/
+
+    Sets application_status = "rejected". No CustomUser is created and no
+    credential email is sent. See master_update.md Part 3.2.
+    """
+    permission_classes = [IsAuthenticated, MemberRejectPermission]
+
+    def post(self, request, member_id):
+        try:
+            member = Member.objects.filter(id=member_id).first()
+            if not member:
+                return Response({
+                    "code": 404,
+                    "status": "failed",
+                    "message": "Member not found",
+                    "errors": {"member": ["No member with this id exists"]}
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            if member.application_status != "pending":
+                return Response({
+                    "code": 400,
+                    "status": "failed",
+                    "message": "Member is not pending approval",
+                    "errors": {
+                        "application_status": [
+                            f"Member application_status is '{member.application_status}', "
+                            "must be 'pending' to reject."
+                        ]
+                    }
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            member.application_status = "rejected"
+            member.save(update_fields=["application_status"])
+
+            log_request(request, "Member rejected", "info",
+                        f"Member {member.member_ID} application was rejected")
+            delete_members_cache.delay()
+            delete_members_specific_cache.delay(member.member_ID)
+
+            return Response({
+                "code": 200,
+                "status": "success",
+                "message": "Member application rejected",
+                "data": {
+                    "member_id": member.id,
+                    "member_ID": member.member_ID,
+                    "application_status": member.application_status,
+                }
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(str(e))
+            log_request(request, "Member rejection failed", "error",
+                        "An error occurred while rejecting a member")
             return Response({
                 "code": 500,
                 "status": "failed",

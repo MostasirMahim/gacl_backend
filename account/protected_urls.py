@@ -54,6 +54,8 @@ PROTECTED_API_URLS = [
 
     # Member endpoints
     (re.compile(r"^/api/member/v1/members/history/"), "member:history"),
+    (re.compile(r"^/api/member/v1/members/\d+/approve/"), "member:approve"),
+    (re.compile(r"^/api/member/v1/members/\d+/reject/"), "member:reject"),
     (re.compile(r"^/api/member/v1/members/"), "member:view"),
 
     # Member Financial endpoints

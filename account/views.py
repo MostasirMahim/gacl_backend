@@ -160,7 +160,8 @@ class AccountLoginLogoutView(APIView):
                     "code": status.HTTP_200_OK,
                     "message": "Token was created successfully",
                     "access_token": str(access_token),
-                    "refresh_token": str(refresh)
+                    "refresh_token": str(refresh),
+                    "must_change_password": user.must_change_password,
                 }, status=status.HTTP_200_OK)
 
                 # Add headers to prevent caching
@@ -1765,8 +1766,10 @@ class GetUserPermissionsView(APIView):
                 user_info = {
                     "user_id": assign_group.user.id if assign_group.user else None,
                     "username": assign_group.user.username if assign_group.user else "No User",
+                    "role": user.role,
                     "is_admin": user.is_superuser,
                     "is_staff": user.is_staff,
+                    "must_change_password": user.must_change_password,
                     **member_block,
                     "groups": [],
                     "permissions": []
@@ -1794,8 +1797,10 @@ class GetUserPermissionsView(APIView):
                 user_info = {
                     "user_id":  user.id,
                     "username": user.username,
+                    "role": user.role,
                     "is_admin": user.is_superuser,
                     "is_staff": user.is_staff,
+                    "must_change_password": user.must_change_password,
                     "is_member": bool(member_profile) and not user.is_staff and not user.is_superuser,
                     "member_id": member_profile.id if member_profile else None,
                     "member_ID": member_profile.member_ID if member_profile else None,
@@ -1805,7 +1810,7 @@ class GetUserPermissionsView(APIView):
                     "groups": [],
                     "permissions": []
                 }
-                if not getattr(user, 'is_staff', False) and not getattr(user, 'is_superuser', False):
+                if user.role == "MEMBER":
                     member_group = GroupModel.objects.filter(name="club_member").prefetch_related("permission").first()
                     if member_group:
                         user_info["groups"].append({"group_id": member_group.id, "group_name": member_group.name})

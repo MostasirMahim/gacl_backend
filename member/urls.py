@@ -93,4 +93,9 @@ urlpatterns = [
     path('v1/members/hard_delete/<int:pk>/', views.MemberHardSingleDeleteView.as_view(),
          name="member_hard_delete_view"),
 
+    path('v1/members/<int:member_id>/approve/', views.ApproveMemberView.as_view(),
+         name="member_approve_view"),
+    path('v1/members/<int:member_id>/reject/', views.RejectMemberView.as_view(),
+         name="member_reject_view"),
+
 ]

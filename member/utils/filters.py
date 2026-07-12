@@ -31,12 +31,19 @@ class MemberFilter(django_filters.FilterSet):
         queryset=MembershipStatusChoice.objects.all(), to_field_name="name")
     marital_status = django_filters.ModelChoiceFilter(
         queryset=MaritalStatusChoice.objects.all(), to_field_name="name")
+    # Workflow-state filter, independent of membership_status (category).
+    # Needed so the "Pending Members" page can filter on
+    # application_status="pending" instead of the old free-text
+    # membership_status="pending" hack.
+    application_status = django_filters.ChoiceFilter(
+        choices=Member.APPLICATION_STATUS_CHOICES)
 
     class Meta:
         model = Member
         fields = [
             "member_ID", 'date_of_birth', 'blood_group', 'nationality',
-            'gender', 'membership_type', 'institute_name', 'membership_status', 'marital_status'
+            'gender', 'membership_type', 'institute_name', 'membership_status',
+            'marital_status', 'application_status'
         ]
 
     def filter_name(self, queryset, name, value):

@@ -9,6 +9,22 @@ from datetime import timedelta
 
 
 class CustomUser(AbstractUser):
+    ROLE_CHOICES = [
+        ("SUPERADMIN", "Superadmin"),
+        ("STAFF", "Staff"),
+        ("MEMBER", "Member"),
+    ]
+    # Single source of truth for "what type of user is this". is_staff /
+    # is_superuser are kept as-is (Django's admin site needs them) but
+    # application/authorization code should read `role` only, not guess
+    # from those flags.
+    role = models.CharField(
+        max_length=20, choices=ROLE_CHOICES, default="STAFF")
+    # Forces a mandatory password-change screen on first login for
+    # members provisioned via ApproveMemberView (temp password = phone
+    # number). Reuses the existing ResetPasswordView flow.
+    must_change_password = models.BooleanField(default=True)
+
     def __str__(self):
         return self.username
 

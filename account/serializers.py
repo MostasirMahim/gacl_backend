@@ -163,6 +163,10 @@ class UpdatePasswordSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         instance.set_password(validated_data["new_password"])
+        # A password change via this authenticated flow satisfies the
+        # mandatory "set a new password" requirement for freshly-approved
+        # member accounts (ApproveMemberView sets this True on create).
+        instance.must_change_password = False
         instance.save()
         return instance
 
@@ -479,7 +483,8 @@ class AdminUserRegistrationSerializer(serializers.ModelSerializer):
         password = validated_data.get('password')
         name = validated_data.get('name')
         user = get_user_model().objects.create_user(
-            username=username, password=password, email=email, first_name=name)
+            username=username, password=password, email=email, first_name=name,
+            is_staff=True, role="STAFF")
         return user
 
 

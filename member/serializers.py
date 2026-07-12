@@ -5,6 +5,7 @@ from .models import Member, MembersFinancialBasics, ContactNumber, Email, Addres
 from club.models import Club
 import pdb
 from .utils.utility_functions import generate_member_id
+from .utils.phone import normalize_phone
 from django.utils import timezone
 
 
@@ -24,6 +25,12 @@ class MemberSerializer(serializers.Serializer):
     institute_name = serializers.CharField()
     membership_status = serializers.CharField()
     marital_status = serializers.CharField()
+    # Workflow state, server-controlled only. Read-only here so it's
+    # visible in responses but silently ignored on input — the client
+    # cannot set/skip straight to "approved"; that only happens via the
+    # dedicated ApproveMemberView. Defaults to "draft" via the model field
+    # default whenever Member.objects.create() runs without it.
+    application_status = serializers.CharField(read_only=True)
 
     def to_internal_value(self, data):
         if hasattr(data, 'copy'):
@@ -156,8 +163,17 @@ class MemberSerializer(serializers.Serializer):
             name=membership_status_data)
         marital_status = MaritalStatusChoice.objects.get(
             name=marital_status_data)
-        member = Member.objects.create(gender=gender, membership_type=membership_type, institute_name=institute_name,
-                                       membership_status=membership_status, marital_status=marital_status, **validated_data)
+        member = Member.objects.create(
+            gender=gender, membership_type=membership_type, institute_name=institute_name,
+            membership_status=membership_status, marital_status=marital_status,
+            # Completing this wizard/form IS the act of submitting the
+            # application for review -- there's no separate partial-save
+            # concept today, so a freshly-created Member should be
+            # immediately visible on the Pending Members page rather than
+            # silently sitting at the model's "draft" default forever with
+            # no path to promote it.
+            application_status="pending",
+            **validated_data)
         return member
 
     def update(self, instance, validated_data):
@@ -348,6 +364,47 @@ class MemberContactNumberSerializer(serializers.Serializer):
                 "Only one contact can be marked as primary.")
         return value
 
+    def validate(self, attrs):
+        """
+        Duplicate-number check (member/models.py :: ContactNumber.number
+        has no uniqueness constraint at all today -- two different
+        members can share an identical number with no warning). Compares
+        normalized (E.164) forms so "+8801712345678" and "01712345678"
+        are recognized as the same number.
+
+        Note: this does a full table scan over ContactNumber to compare
+        normalized forms, since there's no normalized/indexed column to
+        query against directly. Fine at current club-membership scale;
+        if this table grows very large, consider adding a normalized,
+        indexed column populated on save instead.
+        """
+        data_list = attrs.get("data", [])
+        seen_in_request = set()
+        existing_qs = ContactNumber.objects.exclude(
+            number__isnull=True).exclude(number="")
+        if self.instance is not None:
+            # self.instance is the Member being updated; don't flag a
+            # member's own existing numbers as duplicates of themselves.
+            existing_qs = existing_qs.exclude(member=self.instance)
+        existing_normalized = {
+            normalize_phone(num) for num in existing_qs.values_list("number", flat=True)
+        }
+
+        for item in data_list:
+            number = item.get("number")
+            if not number:
+                continue
+            normalized = normalize_phone(number)
+            if normalized in seen_in_request:
+                raise serializers.ValidationError(
+                    {"data": [f"Duplicate contact number in this request: {number}"]})
+            seen_in_request.add(normalized)
+            if normalized in existing_normalized:
+                raise serializers.ValidationError(
+                    {"data": [f"This contact number ({number}) is already registered to another member."]})
+
+        return super().validate(attrs)
+
     def create(self, validated_data):
         member_ID = validated_data["member_ID"]
         data = validated_data["data"]
@@ -453,6 +510,36 @@ class MemberEmailAddressSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 "Only one contact can be marked as primary.")
         return value
+
+    def validate(self, attrs):
+        """
+        Duplicate-email pre-check. member.Email.email has unique=True at
+        the DB level but there was no pre-check here, so a duplicate
+        raised a raw IntegrityError (500) instead of a clean validation
+        error. This returns a clean 400 instead.
+        """
+        data_list = attrs.get("data", [])
+        seen_in_request = set()
+        existing_qs = Email.objects.all()
+        if self.instance is not None:
+            # self.instance is the Member being updated; don't flag a
+            # member's own existing email as a duplicate of itself.
+            existing_qs = existing_qs.exclude(member=self.instance)
+
+        for item in data_list:
+            email = item.get("email")
+            if not email:
+                continue
+            normalized_email = email.strip().lower()
+            if normalized_email in seen_in_request:
+                raise serializers.ValidationError(
+                    {"data": [f"Duplicate email in this request: {email}"]})
+            seen_in_request.add(normalized_email)
+            if existing_qs.filter(email__iexact=email).exists():
+                raise serializers.ValidationError(
+                    {"data": [f"This email ({email}) is already registered to another member."]})
+
+        return super().validate(attrs)
 
     def create(self, validated_data):
         member_ID = validated_data["member_ID"]

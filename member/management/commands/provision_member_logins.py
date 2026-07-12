@@ -1,10 +1,28 @@
 """
-Provision login accounts for members so they can use the self-service portal.
+LEGACY / ONE-TIME BACKFILL TOOL ONLY.
 
-Each member gets a CustomUser where:
-    username = member_ID           (e.g. "SCL-00001")
-    password = default (--password, defaults to "member1234")
-The user is linked via Member.user and added to the "club_member" group.
+Historically this command was the *ongoing* mechanism for turning a
+Member row into a login-enabled account: run manually from the shell,
+batch-provisioning every not-yet-linked Member with a shared default
+password. That is no longer how member logins get created -- as of the
+approve/reject workflow, `member.views.ApproveMemberView`
+(`POST /api/member/v1/members/<member_id>/approve/`) is the real,
+per-member, audited path: it fires as part of admin review, uses the
+member's own primary phone number as the temp password, sets
+`email=`/`role="MEMBER"`, sends credentials, and flips
+`application_status` to "approved".
+
+Keep this command around only for a true one-time backfill of accounts
+that existed *before* the approve/reject workflow shipped (i.e. Member
+rows that were never run through ApproveMemberView because it didn't
+exist yet). Do not use it as an ongoing provisioning path going forward.
+
+Two bugs fixed in this pass (previously: no `email=` set on the created
+CustomUser, and no `role=` set at all):
+  - `email` is now sourced from the member's primary email the same way
+    ApproveMemberView does, so forgot-password isn't silently broken for
+    accounts created via this command.
+  - `role="MEMBER"` is now set explicitly.
 
 Usage:
     python manage.py provision_member_logins
@@ -16,31 +34,18 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 
 from member.models import Member
+from member.constants import MEMBER_PERMISSIONS
 from account.models import GroupModel, PermissonModel, AssignGroupPermission
 
 User = get_user_model()
 
-# Permissions a self-service member is allowed. These gate the member
-# portal features. Kept intentionally small: browse menus, place & pay
-# own orders/reservations, view own bills.
-MEMBER_PERMISSIONS = [
-    "club_member",              # marker permission
-    "member_portal",            # can access the member portal
-    "restaurant:view_menu",
-    "restaurant:order_create",
-    "outlet:view_menu",
-    "outlet:order_create",
-    "reservation:view",
-    "reservation:create",
-    "reservation:process_advance",
-    "member_self:view_own_orders",
-    "member_self:view_own_bills",
-    "member_self:pay_own_bills",
-]
-
 
 class Command(BaseCommand):
-    help = "Create login accounts for members (self-service portal)."
+    help = (
+        "LEGACY one-time backfill: create login accounts for pre-existing "
+        "members that predate the approve/reject workflow. Do not use this "
+        "as the ongoing provisioning path -- see ApproveMemberView."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument("--password", type=str, default="member1234")
@@ -68,18 +73,30 @@ class Command(BaseCommand):
                 # already linked
                 skipped += 1
                 continue
+
+            primary_email = member.emails.filter(is_primary=True).first()
+            email = primary_email.email if primary_email else None
+
             username = member.member_ID
             user = User.objects.filter(username=username).first()
             if not user:
                 user = User.objects.create_user(
                     username=username,
                     password=opts["password"],
+                    email=email,
                     first_name=member.first_name or "",
                     last_name=member.last_name or "",
-                    is_staff=False, is_superuser=False)
+                    is_staff=False, is_superuser=False, role="MEMBER")
                 created += 1
+            elif not user.email and email:
+                # backfill email on an already-existing account too, so
+                # forgot-password stops being silently broken for it.
+                user.email = email
+                user.role = "MEMBER"
+                user.save(update_fields=["email", "role"])
             member.user = user
-            member.save(update_fields=["user"])
+            member.application_status = "approved"
+            member.save(update_fields=["user", "application_status"])
             # add to club_member group
             assign, _ = AssignGroupPermission.objects.get_or_create(user=user)
             assign.group.add(group)
@@ -91,3 +108,8 @@ class Command(BaseCommand):
         self.stdout.write(
             f"Members log in with username = member_ID, "
             f"password = '{opts['password']}'.")
+        if created:
+            self.stdout.write(self.style.WARNING(
+                "Reminder: this command is legacy/one-time backfill only. "
+                "New member approvals should go through ApproveMemberView, "
+                "not this command."))

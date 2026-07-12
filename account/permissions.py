@@ -28,7 +28,7 @@ class HasCustomPermission(BasePermission):
                     for perm in group.permission.all():
                         user_permissions.add(perm.name)
 
-            if not getattr(user, 'is_staff', False) and not getattr(user, 'is_superuser', False):
+            if getattr(user, 'role', None) == 'MEMBER':
                 member_group = GroupModel.objects.filter(name="club_member").prefetch_related("permission").first()
                 if member_group:
                     for perm in member_group.permission.all():

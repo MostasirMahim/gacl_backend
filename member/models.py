@@ -42,6 +42,24 @@ class Member(models.Model):
     marital_status = models.ForeignKey(
         MaritalStatusChoice, related_name='marital_status_choice', on_delete=models.RESTRICT)  # mandatory field
 
+    # Workflow state for the member application/approval process. This is
+    # independent of `membership_status` above, which represents member
+    # *category* (e.g. general/life/honorary) and is left untouched.
+    # application_status tracks whether this Member has been reviewed and
+    # given a login account yet:
+    #   draft    -> just created via the wizard, not yet submitted for review
+    #   pending  -> awaiting admin approve/reject
+    #   approved -> CustomUser created & linked, member can log in
+    #   rejected -> application declined, no CustomUser created
+    APPLICATION_STATUS_CHOICES = [
+        ("draft", "Draft"),
+        ("pending", "Pending"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    ]
+    application_status = models.CharField(
+        max_length=20, choices=APPLICATION_STATUS_CHOICES, default="draft")
+
     # Record keeping
     status = models.IntegerField(choices=STATUS_CHOICES, default=0)
     is_active = models.BooleanField(default=True)

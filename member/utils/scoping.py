@@ -19,12 +19,15 @@ def get_member_for_user(user):
 
 
 def is_member_user(user):
-    """True if this user is a self-service member (not staff/admin)."""
+    """True if this user is a self-service member (not staff/admin).
+
+    Single source of truth is now CustomUser.role — no more guessing from
+    is_staff/is_superuser flags (those disagreed with the other two
+    call-sites of this logic before the role field existed).
+    """
     if not user or user.is_anonymous:
         return False
-    if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
-        return False
-    return get_member_for_user(user) is not None
+    return getattr(user, "role", None) == "MEMBER"
 
 
 def scope_queryset_to_member(qs, user, member_field="member"):

@@ -40,6 +40,8 @@ To enable precise backend authorization enforcement (e.g., allowing a user to `v
 * `member:edit` - Update member personal information and documents.
 * `member:delete` - Delete or soft-delete member accounts.
 * `member:export` - Export member data reports.
+* `member:approve` - Approve a pending member application (creates their login account).
+* `member:reject` - Reject a pending member application.
 
 ### 💰 Member Financial Management (`member_financial`)
 * `member_financial:view_invoices` - View member billing statements and ledgers.
