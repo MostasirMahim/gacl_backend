@@ -162,6 +162,7 @@ class AccountLoginLogoutView(APIView):
                     "access_token": str(access_token),
                     "refresh_token": str(refresh),
                     "must_change_password": user.must_change_password,
+                    "role": user.role,
                 }, status=status.HTTP_200_OK)
 
                 # Add headers to prevent caching
@@ -599,6 +600,49 @@ class VerifyOtpView(APIView):
                     "server_error": [str(e)]
                 }
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class PortalResetPasswordInitiateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        Automatically generates an OTP for the currently authenticated member's
+        primary email address and emails it to them.
+        """
+        user = request.user
+        email = user.email
+        if not email:
+            return Response({
+                "status": "failed",
+                "code": status.HTTP_400_BAD_REQUEST,
+                "message": "User has no email address configured on their login account",
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        otp = randint(1000, 9999)
+        # Checking if a user with OTP Exist
+        is_exist = ForgetPasswordOTP.objects.filter(email=email).exists()
+        if is_exist:
+            otp_model = ForgetPasswordOTP.objects.get(email=email)
+            otp_model.expire_time = timezone.now()
+            otp_model.otp = otp
+            otp_model.save()
+        else:
+            ForgetPasswordOTP.objects.create(email=email, otp=otp)
+            
+        send_otp_mail_to_email.delay_on_commit(otp, email)
+        log_activity_task.delay_on_commit(
+            request_data_activity_log(request),
+            verb="Portal password reset initiate",
+            severity_level="info",
+            description=f"Authenticated member {user.username} initiated password reset OTP",
+        )
+        return Response({
+            "status": "success",
+            "code": status.HTTP_200_OK,
+            "message": "OTP has been sent to your registered email successfully",
+            "email": email
+        }, status=status.HTTP_200_OK)
 
 
 class CustomTokenRefreshView(TokenRefreshView):

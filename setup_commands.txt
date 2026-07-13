@@ -35,7 +35,7 @@ Description:
 SEQUENCE 3: UNIFIED ACCOUNT & PROFILE SEEDING (MEMBERS & STAFF)
 -------------------------------------------------------------------------------
 Command:
-    python manage.py seed_accounts --members 50 --staff 50
+    python manage.py seed_accounts --staff 50
 
 Description:
     Populates full testing datasets for club members and departmental staff.
@@ -48,4 +48,5 @@ SUMMARY QUICK EXECUTION COMMANDS (Development / Testing)
 python manage.py migrate
 python manage.py bootstrap_auth
 python manage.py bootstrap_admin
-python manage.py seed_accounts --members 50 --staff 50
+python manage.py seed_accounts --staff 50
+python manage.py seed_data --months 6

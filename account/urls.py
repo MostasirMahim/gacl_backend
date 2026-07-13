@@ -16,6 +16,8 @@ urlpatterns = [
     path('v1/reset_password/', views.ResetPasswordView.as_view(),
          name="account_reset_password"),
     path('v1/verify_otp/', views.VerifyOtpView.as_view(), name="verify_otp"),
+    path('v1/portal_reset_password_initiate/', views.PortalResetPasswordInitiateView.as_view(),
+         name="portal_reset_password_initiate"),
     path('v1/authorization/custom_permission_name/',
          views.CustomPermissionView.as_view(), name="custom_permission_name"),
     path('v1/authorization/group_permissions/',

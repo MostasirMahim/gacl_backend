@@ -3092,7 +3092,7 @@ class ApproveMemberView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             primary_email = primary_email_obj.email
-            temp_password = normalize_phone(primary_phone_obj.number)
+            temp_password = primary_phone_obj.number
 
             User = get_user_model()
             if User.objects.filter(username=member.member_ID).exists():
