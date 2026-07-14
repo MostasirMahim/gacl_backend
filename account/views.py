@@ -75,7 +75,8 @@ class AccountRegistrationView(APIView):
                     settings.SIMPLE_JWT["AUTH_COOKIE"],
                     str(access_token),
                     httponly=settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
-                    secure=env("COOKIE_SECURE") == "True",
+                    secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
+                    path="/",
                     max_age=timedelta(
                         days=time_limit_for_cookie).total_seconds()
                 )
@@ -83,7 +84,8 @@ class AccountRegistrationView(APIView):
                     settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"],
                     str(refresh),
                     httponly=settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
-                    secure=env("COOKIE_SECURE") == "True",
+                    secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
+                    path="/",
                     max_age=timedelta(
                         days=time_limit_for_cookie).total_seconds()
                 )
@@ -176,6 +178,7 @@ class AccountLoginLogoutView(APIView):
                     str(access_token),
                     httponly=settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
                     secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
+                    path="/",
                     max_age=timedelta(
                         days=time_limit_for_cookie).total_seconds()
                 )
@@ -184,6 +187,7 @@ class AccountLoginLogoutView(APIView):
                     str(refresh),
                     httponly=settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
                     secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
+                    path="/",
                     max_age=timedelta(
                         days=time_limit_for_cookie).total_seconds()
                 )
@@ -401,6 +405,7 @@ class ResetPasswordView(APIView):
                                 str(access_token),
                                 httponly=settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
                                 secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
+                                path="/",
                                 max_age=timedelta(
                                     days=7).total_seconds()
                             )
@@ -409,6 +414,7 @@ class ResetPasswordView(APIView):
                                 str(refresh),
                                 httponly=settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
                                 secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
+                                path="/",
                                 max_age=timedelta(
                                     days=7).total_seconds()
                             )
@@ -692,7 +698,8 @@ class CustomTokenRefreshView(TokenRefreshView):
                 settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"],
                 response.data["refresh"],
                 httponly=settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
-                secure=env("COOKIE_SECURE") == "True",
+                secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
+                path="/",
                 max_age=timedelta(
                     days=15).total_seconds()
             )
@@ -703,7 +710,8 @@ class CustomTokenRefreshView(TokenRefreshView):
                 settings.SIMPLE_JWT["AUTH_COOKIE"],
                 response.data['access'],
                 httponly=settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
-                secure=env("COOKIE_SECURE") == "True",
+                secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
+                path="/",
                 max_age=timedelta(
                     days=7).total_seconds()
             )
