@@ -104,9 +104,10 @@ class Command(BaseCommand):
                         assign_grp.save()
 
                 member_id = f"GACL-M{i:04d}"
-                member, _ = Member.objects.get_or_create(
+                member, member_created = Member.objects.get_or_create(
                     member_ID=member_id,
                     defaults={
+                        'user': user,
                         'membership_type': membership_types[(i - 1) % len(membership_types)],
                         'gender': genders[(i - 1) % len(genders)],
                         'institute_name': institutes[(i - 1) % len(institutes)],
@@ -123,6 +124,9 @@ class Command(BaseCommand):
                         'is_active': True,
                     }
                 )
+                if not member_created and not member.user:
+                    member.user = user
+                    member.save(update_fields=['user'])
 
                 MembersFinancialBasics.objects.get_or_create(
                     member=member,
