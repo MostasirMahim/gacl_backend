@@ -49,4 +49,4 @@ python manage.py migrate
 python manage.py bootstrap_auth
 python manage.py bootstrap_admin
 python manage.py seed_accounts --staff 50
-python manage.py seed_data --months 6
+python manage.py seed_demo --months 6
