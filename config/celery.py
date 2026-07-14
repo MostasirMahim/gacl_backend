@@ -1,8 +1,14 @@
-from __future__ import absolute_import, unicode_literals
 import os
+import environ
+from pathlib import Path
 
 from celery import Celery
 from django.conf import settings
+
+# Load .env file from settings folder so DJANGO_ENV is available
+env_path = Path(__file__).parent / "settings" / ".env"
+if env_path.exists():
+    environ.Env.read_env(str(env_path))
 
 DJANGO_ENV = os.getenv('DJANGO_ENV', 'development')
 if DJANGO_ENV == 'production':
