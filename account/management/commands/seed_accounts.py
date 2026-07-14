@@ -80,7 +80,7 @@ class Command(BaseCommand):
         with transaction.atomic():
             for i in range(1, member_count + 1):
                 username = f"member{i}"
-                email_str = f"member{i}@gacl.test"
+                email_str = f"member{i}@test.com"
                 password_str = "member1234"
 
                 user, user_created = User.objects.get_or_create(
@@ -91,10 +91,12 @@ class Command(BaseCommand):
                         'last_name': fake.last_name(),
                         'is_active': True,
                         'is_staff': False,
+                        'role': 'MEMBER',
                     }
                 )
                 if user_created or not user.check_password(password_str):
                     user.set_password(password_str)
+                    user.role = 'MEMBER'
                     user.save()
 
                 if member_group:
