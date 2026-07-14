@@ -387,6 +387,7 @@ class ResetPasswordView(APIView):
                         with transaction.atomic():
                             user = get_user_model().objects.get(email=email)
                             user.set_password(password)  # Change password
+                            user.must_change_password = False  # Mark as changed
                             user.save()
                             # Create new token and return
                             refresh = RefreshToken.for_user(user)
