@@ -333,7 +333,7 @@ class RestaurantOrderViewSerializer(serializers.ModelSerializer):
         fields = ["id", "order_number", "status", "serve_location",
                   "room_number", "placed_by", "sub_total", "total_amount",
                   "note", "otp_verified", "restaurant", "member", "guest",
-                  "waiter", "invoice", "items", "created_at"]
+                  "waiter", "invoice", "items", "created_at", "otp_code"] # [temporary]
 
 
 class RestaurantInventoryItemSerializer(serializers.ModelSerializer):

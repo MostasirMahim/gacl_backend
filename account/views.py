@@ -648,7 +648,8 @@ class PortalResetPasswordInitiateView(APIView):
             "status": "success",
             "code": status.HTTP_200_OK,
             "message": "OTP has been sent to your registered email successfully",
-            "email": email
+            "email": email,
+            "otp": otp # [temporary]
         }, status=status.HTTP_200_OK)
 
 
