@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'silk',
     'django_extensions',
+    'anymail',
     # Custom apps
     'account',
     'club',
@@ -239,13 +240,14 @@ TEMPLATES = [
     },
 ]
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = env("EMAIL_HOST", default='smtp.gmail.com')
-EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
-EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+ANYMAIL = {
+    "RESEND_API_KEY": env("RESEND_API_KEY", default=""),
+}
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default='onboarding@resend.dev')
+# Fallback settings for local / test environments if needed
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default='')
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default='')
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default=EMAIL_HOST_USER)
+
 
 if 'test' in sys.argv:
     # Disable throttling in tests

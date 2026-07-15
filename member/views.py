@@ -72,7 +72,7 @@ class MemberView(APIView):
                     MemberHistory.objects.create(start_date=timezone.now(
                     ), stored_member_id=member.member_ID, member=member)
                     # cache delete
-                    delete_members_cache.delay()
+                    delete_members_cache()
                     return Response({
                         'code': 201,
                         'status': 'success',
@@ -121,7 +121,7 @@ class MemberView(APIView):
                     log_request(request, "Member update success",
                                 "info", "user updated a member successfully")
                     # cache delete
-                    delete_members_cache.delay()
+                    delete_members_cache()
 
                     return Response({
                         'code': 200,
@@ -204,7 +204,7 @@ class MemberView(APIView):
                 log_request(request, "Member delete success", "info",
                             "user tried to delete a member and succeeded")
                 # cache delete
-                delete_members_cache.delay()
+                delete_members_cache()
                 return Response({
                     "code": 204,
                     'message': "member deleted",
@@ -3141,8 +3141,8 @@ class ApproveMemberView(APIView):
 
             log_request(request, "Member approved", "info",
                         f"Member {member.member_ID} was approved and a login account was created")
-            delete_members_cache.delay()
-            delete_members_specific_cache.delay(member.member_ID)
+            delete_members_cache()
+            delete_members_specific_cache(member.member_ID)
 
             return Response({
                 "code": 200,
@@ -3206,8 +3206,8 @@ class RejectMemberView(APIView):
 
             log_request(request, "Member rejected", "info",
                         f"Member {member.member_ID} application was rejected")
-            delete_members_cache.delay()
-            delete_members_specific_cache.delay(member.member_ID)
+            delete_members_cache()
+            delete_members_specific_cache(member.member_ID)
 
             return Response({
                 "code": 200,

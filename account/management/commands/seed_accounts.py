@@ -79,7 +79,8 @@ class Command(BaseCommand):
         # 2. Seed Member Accounts
         with transaction.atomic():
             for i in range(1, member_count + 1):
-                username = f"member{i}"
+                member_id = f"GACL-M{i:04d}"
+                username = member_id
                 email_str = f"member{i}@test.com"
                 password_str = "member1234"
 
@@ -105,7 +106,6 @@ class Command(BaseCommand):
                         assign_grp.group.add(member_group)
                         assign_grp.save()
 
-                member_id = f"GACL-M{i:04d}"
                 member, member_created = Member.objects.get_or_create(
                     member_ID=member_id,
                     defaults={
