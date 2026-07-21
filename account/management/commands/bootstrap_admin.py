@@ -32,11 +32,14 @@ class Command(BaseCommand):
                 email=email,
                 password=password
             )
+            user.role = "SUPERADMIN"
+            user.save()
             self.stdout.write(self.style.SUCCESS(f"Superuser '{username}' created successfully."))
         else:
             user.is_superuser = True
             user.is_staff = True
             user.email = email
+            user.role = "SUPERADMIN"
             user.set_password(password)
             user.save()
             self.stdout.write(self.style.SUCCESS(f"Superuser '{username}' updated successfully."))

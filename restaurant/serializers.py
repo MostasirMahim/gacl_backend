@@ -382,3 +382,17 @@ class GuestVerifyOtpSerializer(serializers.Serializer):
     """Validates the public guest OTP-confirm payload."""
     otp_code = serializers.CharField(max_length=6)
     member_id = serializers.IntegerField()
+
+
+class RestaurantPublicListSerializer(serializers.ModelSerializer):
+    cuisine_type_name = serializers.CharField(source='cuisine_type.name', read_only=True)
+    restaurant_type_name = serializers.CharField(source='restaurant_type.name', read_only=True)
+
+    class Meta:
+        model = Restaurant
+        fields = [
+            "id", "name", "slug", "description", "address", "city", "state",
+            "operating_hours", "capacity", "status", "opening_time", "closing_time",
+            "banner_bg_image", "banner_title", "banner_description", "about_text",
+            "cuisine_type_name", "restaurant_type_name"
+        ]

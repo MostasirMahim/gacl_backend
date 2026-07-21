@@ -1407,3 +1407,50 @@ class RestaurantPublicItemDetailBySlugView(APIView):
                 "errors": {"server_error": [str(e)]}
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+from rest_framework.permissions import AllowAny
+
+class RestaurantPublicListView(APIView):
+    """
+    Public API to list all active, open restaurants for the default landing grid page.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            query_items = sorted(request.query_params.items())
+            query_string = urlencode(query_items) if query_items else "default"
+            cache_key = f"public_restaurants_list::{query_string}"
+            cached_response = cache.get(cache_key)
+            if cached_response:
+                return Response(cached_response, status=200)
+
+            paginator = CustomPageNumberPagination()
+            restaurants = Restaurant.objects.select_related(
+                "cuisine_type", "restaurant_type"
+            ).filter(is_active=True, status="open").order_by("-id")
+            
+            paginated_queryset = paginator.paginate_queryset(
+                restaurants, request=request, view=self)
+                
+            serializer = serializers.RestaurantPublicListSerializer(
+                paginated_queryset, many=True, context={'request': request})
+                
+            final_response = paginator.get_paginated_response({
+                "code": 200,
+                "status": "success",
+                "message": "Successfully fetched public restaurant list",
+                "data": serializer.data
+            }, status=200)
+            
+            cache.set(cache_key, final_response.data, timeout=60 * 30)
+            return final_response
+
+        except Exception as e:
+            logger.exception(str(e))
+            return Response({
+                "code": 500,
+                "status": "failed",
+                "message": "Something went wrong fetching restaurants",
+                "errors": {"server_error": [str(e)]}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
