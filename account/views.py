@@ -389,6 +389,11 @@ class ResetPasswordView(APIView):
                             user.set_password(password)  # Change password
                             user.must_change_password = False  # Mark as changed
                             user.save()
+                            
+                            # Clear permissions cache to reflect must_change_password update
+                            cache_key = f"specific_user_permissions::{user.id}"
+                            cache.delete(cache_key)
+                            
                             # Create new token and return
                             refresh = RefreshToken.for_user(user)
                             access_token = refresh.access_token
