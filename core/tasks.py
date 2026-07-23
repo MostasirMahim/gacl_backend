@@ -81,3 +81,33 @@ def backup_database():
     except subprocess.CalledProcessError as e:
         print("Error during database backup:", e)
         raise e
+
+@shared_task
+def cancel_expired_pending_otp_orders():
+    """Cancel any Restaurant or Outlet order that has been in pending_otp state for > 5 minutes."""
+    from django.utils import timezone
+    from datetime import timedelta
+    from restaurant.models import RestaurantOrder
+    from outlet.models import OutletOrder
+    import logging
+
+    logger = logging.getLogger("myapp")
+    expiry_threshold = timezone.now() - timedelta(minutes=5)
+    
+    # Check Restaurant Orders
+    stale_restaurant_orders = RestaurantOrder.objects.filter(
+        status="pending_otp", 
+        created_at__lt=expiry_threshold
+    )
+    count1 = stale_restaurant_orders.update(status="cancelled", updated_at=timezone.now())
+    if count1 > 0:
+        logger.info(f"Cancelled {count1} expired pending_otp RestaurantOrders")
+
+    # Check Outlet Orders
+    stale_outlet_orders = OutletOrder.objects.filter(
+        status="pending_otp", 
+        created_at__lt=expiry_threshold
+    )
+    count2 = stale_outlet_orders.update(status="cancelled", updated_at=timezone.now())
+    if count2 > 0:
+        logger.info(f"Cancelled {count2} expired pending_otp OutletOrders")

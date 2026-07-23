@@ -281,4 +281,8 @@ CELERY_BEAT_SCHEDULE = {
         "task": "finance_core.tasks.send_monthly_due_reminders",
         "schedule": crontab(minute=0, hour=9, day_of_month=28),  # 9am on the 28th
     },
+    "cancel-expired-pending-otp-orders": {
+        "task": "core.tasks.cancel_expired_pending_otp_orders",
+        "schedule": crontab(minute="*/5"),  # Runs every 5 minutes
+    },
 }
