@@ -23,7 +23,9 @@ class CustomUser(AbstractUser):
     # Forces a mandatory password-change screen on first login for
     # members provisioned via ApproveMemberView (temp password = phone
     # number). Reuses the existing ResetPasswordView flow.
-    must_change_password = models.BooleanField(default=True)
+    # Default is False — only MEMBER accounts get this set to True
+    # explicitly in ApproveMemberView / seed_accounts.
+    must_change_password = models.BooleanField(default=False)
 
     def __str__(self):
         return self.username
