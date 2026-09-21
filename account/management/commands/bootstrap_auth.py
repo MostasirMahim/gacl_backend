@@ -29,7 +29,8 @@ ALL_PERMISSIONS = [
     "user:view_list", "user:view_detail", "user:reset_password",
     "email:view_logs", "email:send_single", "email:send_bulk", "email:template_edit",
     "product:view", "product:create", "product:edit", "product:adjust_stock",
-    "promo_code:view", "promo_code:create", "promo_code:toggle_status"
+    "promo_code:view", "promo_code:create", "promo_code:toggle_status",
+    "choices:manage"
 ]
 
 CORE_GROUPS = [
@@ -56,7 +57,8 @@ CORE_GROUPS = [
         "name": "member_services",
         "permissions": [
             "member:view", "member:create", "member:edit", "member:export", "member:history",
-            "user:view_list", "user:view_detail", "email:send_single", "activity_log:view"
+            "user:view_list", "user:view_detail", "email:send_single", "activity_log:view",
+            "choices:manage"
         ]
     },
     {
