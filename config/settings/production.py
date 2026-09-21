@@ -40,7 +40,7 @@ DATABASES = {
 # CORS settings for production
 CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOWED_ORIGINS = [
-    "http://139.59.4.42",
+    "http://172.237.141.11",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
 ]
