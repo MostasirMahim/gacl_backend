@@ -49,10 +49,14 @@ class HasCustomPermission(BasePermission):
             target_perm = self.action_permissions.get(request.method)
 
         if target_perm:
+            if isinstance(target_perm, (list, tuple, set)):
+                return any(p in user_permissions for p in target_perm)
             return target_perm in user_permissions
 
         # 3. Fallback to view's required_permission
         if self.required_permission:
+            if isinstance(self.required_permission, (list, tuple, set)):
+                return any(p in user_permissions for p in self.required_permission)
             return self.required_permission in user_permissions
 
         return False

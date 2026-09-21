@@ -7,7 +7,7 @@ from rest_framework.viewsets import ModelViewSet
 from .models import *
 from member.utils.utility_functions import generate_member_id
 import pdb
-from member.utils.permission_classes import MemberManagementPermission
+from account.utils.permissions_classes import ChoicesPermission
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from django.core.cache import cache
 
@@ -16,10 +16,7 @@ class MembershipTypeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
-        if self.request.method in ["POST","GET"]:
-            return [MemberManagementPermission()]
-        else:
-            return [IsAuthenticated()]
+        return [ChoicesPermission()]
 
     def post(self, request):
         data = request.data
@@ -71,10 +68,7 @@ class InstituteNameView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
-        if self.request.method in ["POST","GET"]:
-            return [MemberManagementPermission()]
-        else:
-            return [IsAuthenticated()]
+        return [ChoicesPermission()]
 
     def post(self, request):
         data = request.data
@@ -129,10 +123,7 @@ class InstituteNameView(APIView):
 class GenderView(APIView):
 
     def get_permissions(self):
-        if self.request.method in ["POST","GET"]:
-            return [MemberManagementPermission()]
-        else:
-            return [IsAuthenticated()]
+        return [ChoicesPermission()]
 
     def post(self, request):
         data = request.data
@@ -183,10 +174,7 @@ class GenderView(APIView):
 class MembershipStatusChoiceView(APIView):
 
     def get_permissions(self):
-        if self.request.method in ["POST","GET"]:
-            return [MemberManagementPermission()]
-        else:
-            return [IsAuthenticated()]
+        return [ChoicesPermission()]
 
     def post(self, request):
         data = request.data
@@ -238,10 +226,7 @@ class MembershipStatusChoiceView(APIView):
 class MaritalStatusChoiceView(APIView):
 
     def get_permissions(self):
-        if self.request.method in ["POST","GET"]:
-            return [MemberManagementPermission()]
-        else:
-            return [IsAuthenticated()]
+        return [ChoicesPermission()]
 
     def post(self, request):
         data = request.data
@@ -293,10 +278,7 @@ class MaritalStatusChoiceView(APIView):
 class EmploymentTypeChoiceView(APIView):
 
     def get_permissions(self):
-        if self.request.method in ["POST","GET"]:
-            return [MemberManagementPermission()]
-        else:
-            return [IsAuthenticated()]
+        return [ChoicesPermission()]
 
     def post(self, request):
         data = request.data
@@ -348,10 +330,7 @@ class EmploymentTypeChoiceView(APIView):
 class EmailTypeChoiceView(APIView):
 
     def get_permissions(self):
-        if self.request.method in ["POST", "GET"]:
-            return [MemberManagementPermission()]
-        else:
-            return [IsAuthenticated()]
+        return [ChoicesPermission()]
 
     def post(self, request):
         data = request.data
@@ -402,10 +381,7 @@ class EmailTypeChoiceView(APIView):
 class ContactTypeChoiceView(APIView):
 
     def get_permissions(self):
-        if self.request.method in ["POST", "GET"]:
-            return [MemberManagementPermission()]
-        else:
-            return [IsAuthenticated()]
+        return [ChoicesPermission()]
 
     def post(self, request):
         data = request.data
@@ -457,10 +433,7 @@ class ContactTypeChoiceView(APIView):
 class AddressTypeChoiceView(APIView):
 
     def get_permissions(self):
-        if self.request.method in ["POST", "GET"]:
-            return [MemberManagementPermission()]
-        else:
-            return [IsAuthenticated()]
+        return [ChoicesPermission()]
 
     def post(self, request):
         data = request.data
@@ -512,10 +485,7 @@ class AddressTypeChoiceView(APIView):
 class DocumentTypeChoiceView(APIView):
 
     def get_permissions(self):
-        if self.request.method in ["POST", "GET"]:
-            return [MemberManagementPermission()]
-        else:
-            return [IsAuthenticated()]
+        return [ChoicesPermission()]
 
     def post(self, request):
         data = request.data
@@ -567,10 +537,7 @@ class DocumentTypeChoiceView(APIView):
 class SpouseStatusChoiceView(APIView):
 
     def get_permissions(self):
-        if self.request.method in ["POST", "GET"]:
-            return [MemberManagementPermission()]
-        else:
-            return [IsAuthenticated()]
+        return [ChoicesPermission()]
 
     def post(self, request):
         data = request.data
@@ -622,10 +589,7 @@ class SpouseStatusChoiceView(APIView):
 class DescendantRelationChoiceView(APIView):
 
     def get_permissions(self):
-        if self.request.method in ["POST", "GET"]:
-            return [MemberManagementPermission()]
-        else:
-            return [IsAuthenticated()]
+        return [ChoicesPermission()]
 
     def post(self, request):
         data = request.data
@@ -676,7 +640,10 @@ class DescendantRelationChoiceView(APIView):
 
 class AllChoicesView(APIView):
 
-    permission_classes = [IsAuthenticated,MemberManagementPermission]
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        return [ChoicesPermission()]
     
     def get(self, request):
         try:

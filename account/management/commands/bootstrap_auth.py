@@ -30,7 +30,7 @@ ALL_PERMISSIONS = [
     "email:view_logs", "email:send_single", "email:send_bulk", "email:template_edit",
     "product:view", "product:create", "product:edit", "product:adjust_stock",
     "promo_code:view", "promo_code:create", "promo_code:toggle_status",
-    "choices:manage"
+    "choice:view", "choice:create", "choice:update", "choice:delete"
 ]
 
 CORE_GROUPS = [
@@ -46,7 +46,8 @@ CORE_GROUPS = [
             "restaurant:view_menu", "restaurant:order_create",
             "outlet:view_menu", "outlet:order_create",
             "reservation:view", "reservation:create",
-            "event:view"
+            "event:view",
+            "choice:view"
         ]
     },
     {
@@ -57,8 +58,8 @@ CORE_GROUPS = [
         "name": "member_services",
         "permissions": [
             "member:view", "member:create", "member:edit", "member:export", "member:history",
-            "user:view_list", "user:view_detail", "email:send_single", "activity_log:view",
-            "choices:manage"
+            "view_all_users", "user:view_list", "user:view_detail", "email:send_single", "activity_log:view",
+            "choice:view", "choice:create", "choice:update", "choice:delete"
         ]
     },
     {
@@ -68,55 +69,61 @@ CORE_GROUPS = [
             "member_financial:view_incomes", "member_financial:view_sales", "member_financial:view_transactions", "member_financial:view_payments",
             "member_financial:view_dues", "member_financial:view_accounts",
             "payroll:view_structures", "payroll:edit_structure", "payroll:run_generate", "payroll:pay_slip", "payroll:manage_loans",
-            "vendor:view", "vendor:record_payment", "promo_code:view", "promo_code:create"
+            "vendor:view", "vendor:record_payment", "promo_code:view", "promo_code:create",
+            "choice:view"
         ]
     },
     {
         "name": "restaurant_kitchen",
         "permissions": [
             "restaurant:view_menu", "restaurant:menu_edit", "restaurant:order_create", "restaurant:kitchen_update", "restaurant:billing",
-            "product:view"
+            "product:view", "choice:view"
         ]
     },
     {
         "name": "outlet_operations",
         "permissions": [
             "outlet:view_menu", "outlet:menu_edit", "outlet:order_create", "outlet:billing", "outlet:cross_order_rule",
-            "product:view"
+            "product:view", "choice:view"
         ]
     },
     {
         "name": "facility_sports",
         "permissions": [
             "reservation:view", "reservation:create", "reservation:cancel", "reservation:process_advance",
-            "facility:view", "facility:edit", "facility:toggle_status"
+            "facility:view", "facility:edit", "facility:toggle_status",
+            "choice:view"
         ]
     },
     {
         "name": "events_marketing",
         "permissions": [
             "event:view", "event:create", "event:edit", "event:manage_expenses",
-            "promo_code:view", "promo_code:create", "email:send_bulk"
+            "promo_code:view", "promo_code:create", "email:send_bulk",
+            "choice:view"
         ]
     },
     {
         "name": "security_gate",
         "permissions": [
-            "attendance:view_records", "attendance:check_in_out", "attendance:card_issue", "attendance:guest_register"
+            "attendance:view_records", "attendance:check_in_out", "attendance:card_issue", "attendance:guest_register",
+            "choice:view"
         ]
     },
     {
         "name": "hr_payroll",
         "permissions": [
             "employee:onboard", "employee:deactivate", "employee:edit_profile",
-            "group:view", "group:assign_user", "payroll:view_structures", "attendance:view_records"
+            "group:view", "group:assign_user", "payroll:view_structures", "attendance:view_records",
+            "choice:view"
         ]
     },
     {
         "name": "supply_procurement",
         "permissions": [
             "vendor:view", "vendor:create", "vendor:select_offer",
-            "product:view", "product:create", "product:adjust_stock"
+            "product:view", "product:create", "product:adjust_stock",
+            "choice:view"
         ]
     }
 ]
