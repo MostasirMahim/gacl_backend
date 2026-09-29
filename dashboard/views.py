@@ -24,6 +24,7 @@ from restaurant.models import Restaurant, RestaurantOrder, RestaurantItem
 from event.models import Event
 from account.models import GroupModel, AssignGroupPermission
 from product.models import Product
+from .overview_builder import _build_overview_section
 
 logger = logging.getLogger("myapp")
 
@@ -678,6 +679,27 @@ def _build_payroll_section():
     active_loans_count = active_loans_agg["count"] or 0
     total_loan_outstanding = float(active_loans_agg["total_outstanding"] or 0)
 
+    # Recent payroll runs (last 5)
+    recent_runs = list(
+        PayrollRun.objects.filter(is_active=True)
+        .order_by("-period_year", "-period_month")[:5]
+        .values("id", "name", "period_month", "period_year", "status", "total_amount")
+    )
+    for r in recent_runs:
+        r["total_amount"] = float(r["total_amount"])
+
+    # Staff loans list (top 5 active by outstanding)
+    active_loans_list = list(
+        StaffLoan.objects.filter(status="active", outstanding__gt=0, is_active=True)
+        .select_related("staff__user")
+        .order_by("-outstanding")[:5]
+        .values("id", "principal", "outstanding", "monthly_deduction", "staff__user__first_name", "staff__user__last_name")
+    )
+    for l in active_loans_list:
+        l["principal"] = float(l["principal"])
+        l["outstanding"] = float(l["outstanding"])
+        l["monthly_deduction"] = float(l["monthly_deduction"])
+
     return {
         "kpi": {
             "total_staff": total_staff,
@@ -687,6 +709,8 @@ def _build_payroll_section():
             "active_loans_count": active_loans_count,
             "total_loan_outstanding": total_loan_outstanding,
         },
+        "recent_runs": recent_runs,
+        "active_loans_list": active_loans_list,
     }
 
 
@@ -695,7 +719,7 @@ def _build_vendor_section():
     Requires: vendor:view
     Returns vendor KPIs and pending offer count.
     """
-    from vendor.models import Vendor, VendorServiceOffer, VendorServiceCategory
+    from vendor.models import Vendor, VendorServiceOffer, VendorServiceCategory, VendorPayment
     from product.models import Product
 
     total_vendors = Vendor.objects.filter(is_active=True).count()
@@ -708,6 +732,31 @@ def _build_vendor_section():
     total_categories = VendorServiceCategory.objects.filter(is_active=True).count()
     total_products = Product.objects.filter(is_active=True).count()
 
+    # Pending offers list
+    pending_offers_list = list(
+        VendorServiceOffer.objects.filter(status="offered", is_active=True)
+        .select_related("vendor", "category")
+        .order_by("-created_at")[:5]
+        .values(
+            "id", "title", "price", "billing_cycle",
+            "vendor__name", "category__name", "created_at"
+        )
+    )
+    for p in pending_offers_list:
+        p["price"] = float(p["price"])
+        p["created_at"] = p["created_at"].isoformat() if p["created_at"] else None
+
+    # Recent payments
+    recent_payments = list(
+        VendorPayment.objects.filter(is_active=True)
+        .select_related("offer__vendor")
+        .order_by("-paid_on")[:5]
+        .values("amount", "paid_on", "reference", "payment_type", "offer__vendor__name")
+    )
+    for rp in recent_payments:
+        rp["amount"] = float(rp["amount"])
+        rp["paid_on"] = rp["paid_on"].isoformat() if rp["paid_on"] else None
+
     return {
         "kpi": {
             "total_vendors": total_vendors,
@@ -716,6 +765,8 @@ def _build_vendor_section():
             "total_service_categories": total_categories,
             "total_active_products": total_products,
         },
+        "pending_offers_list": pending_offers_list,
+        "recent_payments": recent_payments,
     }
 
 
@@ -789,6 +840,9 @@ class DashboardSummaryView(APIView):
             user = request.user
             perms = _get_user_permissions(user)
             data = {}
+
+            # ── Overview section (Role-tailored 360° view) ──────────────
+            data["overview"] = _build_overview_section(user, perms)
 
             # ── Member section ──────────────────────────────────────────
             if _has(perms, "member:view"):
