@@ -12,7 +12,7 @@ journalctl -u member.service --no-pager -n 30
 
 #frontend 
 pm2 restart member_management
-
+source env/Scripts/activate
 
 #celery
 systemctl restart member-celery.service

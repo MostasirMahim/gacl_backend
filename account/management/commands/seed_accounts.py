@@ -187,10 +187,12 @@ class Command(BaseCommand):
                         'last_name': fake.last_name(),
                         'is_active': True,
                         'is_staff': True,
+                        'must_change_password': False,  # Staff should NOT be forced to change password
                     }
                 )
                 if user_created or not user.check_password(password_str):
                     user.set_password(password_str)
+                    user.must_change_password = False  # Staff should NOT be forced to change password
                     user.save()
 
                 if dept_groups:

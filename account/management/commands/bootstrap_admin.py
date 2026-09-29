@@ -33,6 +33,7 @@ class Command(BaseCommand):
                 password=password
             )
             user.role = "SUPERADMIN"
+            user.must_change_password = False  # Admin should NOT be forced to change password
             user.save()
             self.stdout.write(self.style.SUCCESS(f"Superuser '{username}' created successfully."))
         else:
@@ -40,6 +41,7 @@ class Command(BaseCommand):
             user.is_staff = True
             user.email = email
             user.role = "SUPERADMIN"
+            user.must_change_password = False  # Admin should NOT be forced to change password
             user.set_password(password)
             user.save()
             self.stdout.write(self.style.SUCCESS(f"Superuser '{username}' updated successfully."))
