@@ -1,23 +1,482 @@
-This permission is required to add a member with all the necessary information. : /members/add
-This permission is used to view  information of member.: /members/view
-This permission is needed to update  information of a member. : update member
-This permission is required to delete information of a member. : delete_member
-Set all member add options permission name: /members/add
-View all group permission name: /groups
-View single group information permission name: /groups
-Delete Single Group permission name: group_delete
-Edit single Group permission name: group_edit
-Create a group permission name: group_create
-Create New permission: /permissions 
-Get All permissions name: /permissions
-Register user to platform permission name: /reg
-Add, Get, delete, update user in group permission name: group_management
-View All user activity log permission name: all_activity_log
-Restaurant management permission name: restaurant_management
-Restaurant Item buy , excel Upload permission name: member_financial_management
-All Member financial related tasks like,Invoice generation , view, pay Etc. permission name: member_financial_management
-Promo Code creation and management permission name: promo_code_management
-Product management permission name: product_management
-Event management permission name: event_management
-Facility management permission name: facility_management
-view all user permission name: /users
+================================================================================
+  GACL v2 — COMPLETE PERMISSION REFERENCE
+  Updated: 2026-09-30
+  Source: bootstrap_auth.py | protected_urls.py | permissions_classes.py
+================================================================================
+
+HOW THE PERMISSION SYSTEM WORKS
+--------------------------------
+1. Every permission is stored as a string in the PermissonModel (database table).
+2. Permissions are grouped into GroupModel objects (e.g. "finance_accounts").
+3. Users are linked to groups via AssignGroupPermission.
+4. On every API request, HasCustomPermission checks:
+     a. Is user a superuser? → Allow everything.
+     b. Does the URL path match a pattern in protected_urls.py? → Check that specific permission.
+     c. Does the view define action_permissions? → Check per HTTP method.
+     d. Does the view define required_permission? → Check that one permission.
+5. Frontend fetches /api/account/v1/authorization/get_user_all_permissions/ on load.
+   → filterNavigationByPermissions() hides nav items the user has no access to.
+
+PERMISSION NAMING CONVENTION
+------------------------------
+  module_management       → Master section permission (grants broad access to a module)
+  module:action           → Granular sub-permission (e.g. member:create, restaurant:order_create)
+
+To run bootstrap: python manage.py bootstrap_auth
+================================================================================
+
+
+════════════════════════════════════════════════════════════════════════════════
+  SECTION 1 — MASTER SECTION PERMISSIONS
+  (Broad access flags — assigned to roles that own an entire module)
+════════════════════════════════════════════════════════════════════════════════
+
+  member_management               → Full access to Member Management module
+  member_financial_management     → Full access to Member Financial module
+  restaurant_management           → Full access to Restaurant module
+  outlet_management               → Full access to Outlets & Bars module
+  reservation_management          → Full access to Reservations module
+  facility_management             → Full access to Facilities module
+  event_management                → Full access to Events module
+  attendance_management           → Full access to Attendance module
+  payroll_management              → Full access to Payroll module
+  vendor_management               → Full access to Vendor Management module
+  product_management              → Full access to Product Management module
+  promo_code_management           → Full access to Promo Codes module
+  bulk_emails_management          → Full access to Email Management module
+  employee_onboarding             → Full access to Onboarding (register staff users)
+  group_permission_management     → Full access to Groups & Permissions admin panel
+  activity_log_management         → Full access to Activity Logs
+  view_all_users                  → Full access to All Users list
+
+
+════════════════════════════════════════════════════════════════════════════════
+  SECTION 2 — GRANULAR ACTION SUB-PERMISSIONS
+  (Fine-grained per-action control used in backend views and frontend nav)
+════════════════════════════════════════════════════════════════════════════════
+
+  ── MEMBER MANAGEMENT ───────────────────────────────────────────────────────
+  member:view             → View member list and member profiles
+  member:create           → Register new club members
+  member:edit             → Update existing member information
+  member:delete           → Delete / deactivate member records
+  member:export           → Export member data to Excel / CSV
+  member:history          → View member transfer history
+
+  ── MEMBER FINANCIAL MANAGEMENT ─────────────────────────────────────────────
+  member_financial:view_invoices      → View all member invoices and billing records
+  member_financial:generate_invoice   → Generate / issue payment invoices
+  member_financial:process_payment    → Record and process member payments
+  member_financial:adjust_dues        → Adjust, modify, or delete member dues
+  member_financial:view_incomes       → View income records and income particulars
+  member_financial:view_sales         → View all sales records and upload sales files
+  member_financial:view_transactions  → View financial transaction history
+  member_financial:view_payments      → View payment records
+  member_financial:view_dues          → View member outstanding dues
+  member_financial:view_accounts      → View member wallet / account balances
+
+  ── RESTAURANT MANAGEMENT ───────────────────────────────────────────────────
+  restaurant:view_menu        → View restaurant venues, menu items and categories
+  restaurant:menu_edit        → Add / edit / delete menu items, categories, choices, upload sales
+  restaurant:order_create     → Place orders (Cart / POS)
+  restaurant:kitchen_update   → Update kitchen order status (Kitchen Orders screen)
+  restaurant:billing          → Generate / print bills for completed orders
+
+  ── OUTLETS & BARS (LOUNGE) ─────────────────────────────────────────────────
+  outlet:view_menu            → View outlet / bar menu items
+  outlet:menu_edit            → Add / edit / delete outlet menu items, upload lounge sales
+  outlet:order_create         → Place outlet orders
+  outlet:billing              → Generate / print bills for outlet orders
+  outlet:cross_order_rule     → Manage cross-ordering rules between outlets
+
+  ── RESERVATIONS ────────────────────────────────────────────────────────────
+  reservation:view            → View reservation list and booking details
+  reservation:create          → Create new reservations / book resources
+  reservation:cancel          → Cancel existing reservations
+  reservation:process_advance → Process advance payment for a reservation
+
+  ── FACILITIES ──────────────────────────────────────────────────────────────
+  facility:view               → View facility list (swimming pool, courts, gym, etc.)
+  facility:create             → Add new facilities
+  facility:edit               → Edit facility details and settings
+  facility:toggle_status      → Activate or deactivate a facility
+
+  ── EVENTS ──────────────────────────────────────────────────────────────────
+  event:view                  → View events, venues, tickets, fees and media
+  event:create                → Create new events and event venues
+  event:edit                  → Edit existing events, update ticket pricing and fees
+  event:delete                → Delete events
+  event:manage_expenses       → Add and manage event expense records
+
+  ── ATTENDANCE ──────────────────────────────────────────────────────────────
+  attendance:view_records     → View attendance records for members and staff
+  attendance:check_in_out     → Scan / process member check-in and check-out
+  attendance:card_issue       → Issue or manage RFID / access cards
+  attendance:guest_register   → Register and log guest entries
+
+  ── PAYROLL ─────────────────────────────────────────────────────────────────
+  payroll:view_structures     → View salary structures and payroll configurations
+  payroll:edit_structure      → Create / edit salary components and structures
+  payroll:run_generate        → Generate a payroll run
+  payroll:pay_slip            → Mark payslips as paid / processed
+  payroll:manage_loans        → Add and manage staff loan records
+
+  ── VENDOR MANAGEMENT ───────────────────────────────────────────────────────
+  vendor:view                 → View vendor list and vendor offers
+  vendor:create               → Add new vendors
+  vendor:select_offer         → Select / approve a vendor offer / quotation
+  vendor:record_payment       → Record payments made to vendors
+
+  ── ACTIVITY LOGS ───────────────────────────────────────────────────────────
+  activity_log:view           → View all users' activity logs
+  activity_log:export         → Export activity logs to file
+  activity_log:clear          → Clear / purge old activity log entries
+
+  ── GROUP & PERMISSION MANAGEMENT ───────────────────────────────────────────
+  group:view                  → View permission groups and their assigned permissions
+  group:create                → Create new permission groups
+  group:edit                  → Edit existing group names and permissions
+  group:delete                → Delete permission groups
+  group:assign_user           → Assign or remove users from groups
+
+  ── EMPLOYEE / STAFF ONBOARDING ─────────────────────────────────────────────
+  employee:onboard            → Register and onboard new staff users
+  employee:deactivate         → Deactivate a staff account
+  employee:edit_profile       → Edit staff profile and employment details
+
+  ── USER MANAGEMENT ─────────────────────────────────────────────────────────
+  user:view_list              → View the full list of registered users
+  user:view_detail            → View individual user profile details
+  user:reset_password         → Reset a user's password
+
+  ── EMAIL MANAGEMENT ────────────────────────────────────────────────────────
+  email:view_logs             → View sent email history, outbox, and email groups
+  email:send_single           → Compose and send individual emails
+  email:send_bulk             → Send bulk / group emails
+  email:template_edit         → Add and configure email SMTP configurations
+
+  ── PRODUCT MANAGEMENT ──────────────────────────────────────────────────────
+  product:view                → View products, categories, brands, prices and media
+  product:create              → Add products, categories, brands, purchase orders, prices
+  product:edit                → Edit existing product details and stock information
+  product:adjust_stock        → Adjust inventory stock levels
+
+  ── PROMO CODE MANAGEMENT ───────────────────────────────────────────────────
+  promo_code:view             → View promo codes, categories, and applied promo records
+  promo_code:create           → Create new promo codes and promo categories
+  promo_code:toggle_status    → Activate or deactivate a promo code
+
+  ── CHOICES (DROPDOWN CONFIG) ───────────────────────────────────────────────
+  choice:view                 → Read all dropdown choices (marital status, email type, etc.)
+                                NOTE: All staff roles receive this permission because form
+                                dropdowns are used across every module.
+  choice:create               → Add new dropdown option values
+  choice:update               → Edit existing dropdown option values
+  choice:delete               → Remove dropdown option values
+
+
+════════════════════════════════════════════════════════════════════════════════
+  SECTION 3 — CORE ROLE GROUPS & THEIR PERMISSIONS
+  (Assigned via bootstrap_auth.py → python manage.py bootstrap_auth)
+════════════════════════════════════════════════════════════════════════════════
+
+  ┌─────────────────────┬──────────────────────────────────────────────────────┐
+  │ GROUP               │ DESCRIPTION                                          │
+  ├─────────────────────┼──────────────────────────────────────────────────────┤
+  │ super_admin         │ All permissions — no restrictions                    │
+  │ executive_admin     │ All permissions — same as super_admin                │
+  │ member_services     │ Member CRUD + Users + Email + Choices full CRUD      │
+  │ finance_accounts    │ Full MFM + Payroll + Vendor + Promo + Choices view   │
+  │ restaurant_kitchen  │ Restaurant full + Products view + Choices view       │
+  │ outlet_operations   │ Outlet full + Products view + Choices view           │
+  │ facility_sports     │ Reservations + Facilities + Choices view             │
+  │ events_marketing    │ Events + Promo + Bulk Email + Choices view           │
+  │ security_gate       │ Attendance full + Choices view                       │
+  │ hr_payroll          │ Employee + Group assign + Payroll view + Choices view│
+  │ supply_procurement  │ Vendor + Product create + Stock adjust + Choices view│
+  │ club_member         │ Self-service only: view own invoices, order food,    │
+  │                     │ make reservations, view events                       │
+  └─────────────────────┴──────────────────────────────────────────────────────┘
+
+  GROUP DETAIL BREAKDOWN:
+
+  super_admin / executive_admin
+    → ALL 57 permissions (every section master + every granular sub-permission)
+
+  club_member
+    → member:view
+    → member_financial:view_invoices, member_financial:process_payment
+    → restaurant:view_menu, restaurant:order_create
+    → outlet:view_menu, outlet:order_create
+    → reservation:view, reservation:create
+    → event:view
+    → choice:view
+
+  member_services
+    → member:view, member:create, member:edit, member:export, member:history
+    → view_all_users, user:view_list, user:view_detail
+    → email:send_single
+    → activity_log:view
+    → choice:view, choice:create, choice:update, choice:delete
+
+  finance_accounts
+    → member_financial:view_invoices, member_financial:generate_invoice
+    → member_financial:process_payment, member_financial:adjust_dues
+    → member_financial:view_incomes, member_financial:view_sales
+    → member_financial:view_transactions, member_financial:view_payments
+    → member_financial:view_dues, member_financial:view_accounts
+    → payroll:view_structures, payroll:edit_structure, payroll:run_generate
+    → payroll:pay_slip, payroll:manage_loans
+    → vendor:view, vendor:record_payment
+    → promo_code:view, promo_code:create
+    → choice:view
+
+  restaurant_kitchen
+    → restaurant:view_menu, restaurant:menu_edit, restaurant:order_create
+    → restaurant:kitchen_update, restaurant:billing
+    → product:view
+    → choice:view
+
+  outlet_operations
+    → outlet:view_menu, outlet:menu_edit, outlet:order_create
+    → outlet:billing, outlet:cross_order_rule
+    → product:view
+    → choice:view
+
+  facility_sports
+    → reservation:view, reservation:create, reservation:cancel
+    → reservation:process_advance
+    → facility:view, facility:edit, facility:toggle_status
+    → choice:view
+
+  events_marketing
+    → event:view, event:create, event:edit, event:manage_expenses
+    → promo_code:view, promo_code:create
+    → email:send_bulk
+    → choice:view
+
+  security_gate
+    → attendance:view_records, attendance:check_in_out
+    → attendance:card_issue, attendance:guest_register
+    → choice:view
+
+  hr_payroll
+    → employee:onboard, employee:deactivate, employee:edit_profile
+    → group:view, group:assign_user
+    → payroll:view_structures
+    → attendance:view_records
+    → choice:view
+
+  supply_procurement
+    → vendor:view, vendor:create, vendor:select_offer
+    → product:view, product:create, product:adjust_stock
+    → choice:view
+
+
+════════════════════════════════════════════════════════════════════════════════
+  SECTION 4 — BACKEND API URL → PERMISSION MAP
+  (File: account/protected_urls.py — enforced server-side on every request)
+════════════════════════════════════════════════════════════════════════════════
+
+  NOTE: URL patterns are checked in ORDER (most specific first).
+  If a URL matches, that permission is required. No match = falls through
+  to view-level permission check.
+
+  ATTENDANCE
+    /api/attendance/v1/attendance/scan/          → attendance:check_in_out
+    /api/attendance/v1/attendance/records/       → attendance:view_records
+    /api/attendance/v1/attendance/rfid-cards/    → attendance:card_issue
+    /api/attendance/v1/attendance/guests/        → attendance:guest_register
+    /api/attendance/v1/attendance/staff/         → attendance:card_issue
+
+  RESTAURANT
+    /api/restaurant/v1/restaurants/kitchen/orders/     → restaurant:kitchen_update
+    /api/restaurant/v1/restaurants/orders/{id}/bill/   → restaurant:billing
+    /api/restaurant/v1/restaurants/orders/             → restaurant:order_create
+    /api/restaurant/v1/restaurants/upload/excel        → restaurant:menu_edit
+    /api/restaurant/v1/restaurants/items/              → restaurant:menu_edit
+    /api/restaurant/v1/restaurants/                    → restaurant:view_menu
+
+  OUTLETS & BARS
+    /api/outlet/v1/outlets/cross-ordering-rules/       → outlet:cross_order_rule
+    /api/outlet/v1/outlets/kitchen/orders/             → outlet:order_create
+    /api/outlet/v1/outlets/orders/{id}/bill/           → outlet:billing
+    /api/outlet/v1/outlets/orders/                     → outlet:order_create
+    /api/outlet/v1/outlets/items/                      → outlet:menu_edit
+    /api/outlet/v1/outlets/                            → outlet:view_menu
+
+  RESERVATIONS
+    /api/reservation/v1/reservations/{id}/pay-advance/ → reservation:process_advance
+    /api/reservation/v1/reservations/{id}/cancel/      → reservation:cancel
+    /api/reservation/v1/reservations/resources/        → reservation:create
+    /api/reservation/v1/reservations/                  → reservation:view
+
+  VENDORS
+    /api/vendor/v1/vendors/offers/{id}/select/         → vendor:select_offer
+    /api/vendor/v1/vendors/offers/{id}/pay/            → vendor:record_payment
+    /api/vendor/v1/vendors/offers/                     → vendor:view
+    /api/vendor/v1/vendors/                            → vendor:create
+
+  PAYROLL
+    /api/payroll/v1/payroll/runs/generate/             → payroll:run_generate
+    /api/payroll/v1/payroll/slips/{id}/pay/            → payroll:pay_slip
+    /api/payroll/v1/payroll/structures/                → payroll:edit_structure
+    /api/payroll/v1/payroll/components/                → payroll:edit_structure
+    /api/payroll/v1/payroll/                           → payroll:view_structures
+
+  EVENTS
+    /api/event/v1/events/expenses/                     → event:manage_expenses
+    /api/event/v1/events/                              → event:view
+
+  MEMBERS
+    /api/member/v1/members/history/                    → member:history
+    /api/member/v1/members/{id}/approve/               → member:approve
+    /api/member/v1/members/{id}/reject/                → member:reject
+    /api/member/v1/members/                            → member:view
+
+  MEMBER FINANCIAL
+    /api/member_financial/v1/invoices/custom/delete/   → member_financial:adjust_dues
+    /api/member_financial/v1/invoices/                 → member_financial:view_invoices
+    /api/member_financial/v1/payment/invoice/          → member_financial:generate_invoice
+    /api/member_financial/v1/income/                   → member_financial:view_invoices
+    /api/member_financial/v1/sales/                    → member_financial:view_invoices
+    /api/member_financial/v1/transactions/             → member_financial:view_invoices
+    /api/member_financial/v1/payments/                 → member_financial:process_payment
+    /api/member_financial/v1/dues/                     → member_financial:view_invoices
+    /api/member_financial/v1/member_accounts/recharge/ → member_financial:process_payment
+    /api/member_financial/v1/member_accounts/          → member_financial:view_accounts
+    /api/member_financial/v1/lounge/upload/excel/      → outlet:menu_edit
+    /api/member_financial/v1/others/upload/excel/      → member_financial:view_sales
+
+  ACTIVITY LOG
+    /api/activity_log/v1/activity/all_user_activity/   → activity_log:view
+
+  CHOICES (core app — NOT in protected_urls, uses view-level ChoicesPermission)
+    /api/core/v1/*  (all choice endpoints)
+      GET    → choice:view
+      POST   → choice:create
+      PATCH  → choice:update
+      PUT    → choice:update
+      DELETE → choice:delete
+
+
+════════════════════════════════════════════════════════════════════════════════
+  SECTION 5 — FRONTEND NAVIGATION PERMISSION KEYS
+  (File: frontend/src/components/utils/Navigation_functions.tsx)
+════════════════════════════════════════════════════════════════════════════════
+
+  The sidebar nav uses navigationPermissions{} map to decide which items to show.
+  filterNavigationByPermissions() checks:
+    1. parentLabel > item.label  (e.g. "Restaurant > Categories")
+    2. Fallback to item.label    (e.g. "Categories")
+    3. sectionMasterMap prefix   (e.g. "restaurant:" → "restaurant_management")
+
+  Nav Item                      Permission Required
+  ---------------------------   -----------------------------------------
+  Dashboard                     null (always visible to logged-in users)
+  MemberSphere                  member:view
+    View Members                member:view
+    Pending Members             member:edit
+    Add Member                  member:create
+    Transfer History            member:history
+    Recycle Bin                 member:delete
+  Attendance                    attendance:view_records
+  Reservations                  reservation:view
+  Facilities                    facility:view
+    All Facilities              facility:view
+    New Facility                facility:create
+  Restaurant                    restaurant:view_menu
+    Restaurants                 restaurant:view_menu
+    Cart / POS                  restaurant:order_create
+    Kitchen Orders              restaurant:order_create
+    Add Item                    restaurant:menu_edit
+    Categories                  restaurant:menu_edit
+    Menu Choices                restaurant:menu_edit
+    Upload Sales                restaurant:menu_edit
+  Outlets & Bars                outlet:view_menu
+  Events                        event:view
+    Events                      event:view
+    Venues                      event:edit
+    Tickets                     event:view
+    Fees                        event:edit
+    Media                       event:edit
+  Finance                       member_financial:view_invoices
+  Member Finance                member_financial:view_invoices
+    Invoices                    member_financial:view_invoices
+    All Invoices                member_financial:view_invoices
+    Payment Invoice             member_financial:generate_invoice
+    Member Accounts             member_financial:view_accounts
+    Member Dues                 member_financial:view_dues
+    Transactions                member_financial:view_transactions
+    Incomes                     member_financial:view_incomes
+    Particulars                 member_financial:view_incomes
+    Receiving Options           member_financial:view_incomes
+    Payment Options             member_financial:adjust_dues
+    All Sales                   member_financial:view_sales
+    Payments                    member_financial:view_payments
+  Products                      product:view
+    View Products               product:view
+    Add Product                 product:create
+    Categories                  product:view
+    View Categories             product:view
+    Add Category                product:create
+    Brands                      product:view
+    View Brands                 product:view
+    Add Brand                   product:create
+    Purchases                   product:view
+    Purchase Orders             product:view
+    New Purchase                product:create
+    Prices                      product:view
+    Add Price                   product:create
+    Media                       product:view
+    View Media                  product:view
+    Add Media                   product:create
+  Upload Sales                  member_financial:view_sales
+    Restaurant Sales            restaurant:menu_edit
+    Lounge Sales                outlet:menu_edit
+    Other Sales                 member_financial:view_sales
+  Promo Codes                   promo_code:view
+    All Promos                  promo_code:view
+    New Promo                   promo_code:create
+    Categories                  promo_code:view
+    Add category                promo_code:create
+    Applied Promos              promo_code:view
+  Vendors                       vendor:view
+  Payroll                       payroll:view_structures
+  Onboarding                    employee:onboard
+  Emails                        email:view_logs
+    Compose                     email:send_single
+    Groups                      email:view_logs
+    Add to Group                email:send_bulk
+    Outbox                      email:view_logs
+    Sent History                email:view_logs
+    Configurations              email:template_edit
+  Users                         user:view_list
+  Groups                        group:view
+  Choices                       choice:create
+  Activity Logs                 activity_log:view
+  My Activity                   null (always visible — personal logs only)
+
+
+════════════════════════════════════════════════════════════════════════════════
+  SECTION 6 — QUICK SETUP COMMANDS
+════════════════════════════════════════════════════════════════════════════════
+
+  # Seed all permissions and groups (run this on fresh install or after changes):
+  python manage.py bootstrap_auth
+
+  # Create a superuser (bypasses all permission checks):
+  python manage.py createsuperuser
+
+  # Assign a user to a group via Django shell:
+  from account.models import AssignGroupPermission, GroupModel
+  from django.contrib.auth import get_user_model
+  User = get_user_model()
+  user = User.objects.get(username="staff_user")
+  group = GroupModel.objects.get(name="finance_accounts")
+  agp, _ = AssignGroupPermission.objects.get_or_create(user=user)
+  agp.group.add(group)
+
+================================================================================
+  END OF PERMISSIONS REFERENCE — GACL v2 Enterprise Dashboard
+================================================================================
