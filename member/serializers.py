@@ -31,6 +31,26 @@ class MemberSerializer(serializers.Serializer):
     # dedicated ApproveMemberView. Defaults to "draft" via the model field
     # default whenever Member.objects.create() runs without it.
     application_status = serializers.CharField(read_only=True)
+    email = serializers.SerializerMethodField(read_only=True)
+    contact_number = serializers.SerializerMethodField(read_only=True)
+
+    def get_email(self, obj):
+        try:
+            if hasattr(obj, 'emails'):
+                e = obj.emails.filter(is_primary=True).first() or obj.emails.first()
+                return e.email if e else ""
+        except Exception:
+            pass
+        return ""
+
+    def get_contact_number(self, obj):
+        try:
+            if hasattr(obj, 'contact_numbers'):
+                c = obj.contact_numbers.filter(is_primary=True).first() or obj.contact_numbers.first()
+                return c.number if c else ""
+        except Exception:
+            pass
+        return ""
 
     def to_internal_value(self, data):
         if hasattr(data, 'copy'):

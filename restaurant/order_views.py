@@ -205,6 +205,7 @@ class KitchenOrderView(APIView):
             status__in=["confirmed", "preparing", "ready"], is_active=True)
         if restaurant_id:
             qs = qs.filter(restaurant_id=restaurant_id)
+        qs = qs.order_by("-created_at")
         data = serializers.RestaurantOrderViewSerializer(qs, many=True).data
         return Response(_envelope(200, "success", "Kitchen queue", data=data))
 

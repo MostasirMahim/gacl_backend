@@ -1,6 +1,0 @@
-set DJANGO_ENV=production
-set DJANGO_ENV=development
-
-powershell
-$env:DJANGO_ENV = "development"
-$env:DJANGO_ENV = "production"

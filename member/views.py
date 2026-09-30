@@ -479,7 +479,7 @@ class MemberListView(APIView):
 
             # Get all members
             queryset = Member.objects.filter(
-                status=0, is_active=True).select_related("membership_type", "institute_name", "membership_status", "marital_status", "gender").order_by("id")
+                status=0, is_active=True).select_related("membership_type", "institute_name", "membership_status", "marital_status", "gender").prefetch_related("emails", "contact_numbers").order_by("id")
 
             # Apply filtering only if filters are provided in the request
             if request.GET:  # Check if any query parameters exist

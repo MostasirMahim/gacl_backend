@@ -1,6 +1,0 @@
-celery -A config.celery worker --pool=solo -l info
-celery -A config flower
-celery -A config beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
-
-
-

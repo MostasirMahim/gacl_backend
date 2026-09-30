@@ -413,8 +413,25 @@ class RestaurantItemCategoryView(APIView):
 
     def get(self, request):
         try:
-            paginator = CustomPageNumberPagination()
             cuisines = RestaurantItemCategory.objects.filter(is_active=True)
+            restaurant_id = request.GET.get("restaurant")
+            if restaurant_id:
+                cuisines = cuisines.filter(
+                    item_category__restaurant_id=restaurant_id,
+                    item_category__is_active=True
+                ).distinct()
+
+            if request.GET.get("no_page") or request.GET.get("all"):
+                serializer = serializers.RestaurantItemCategorySerializer(
+                    cuisines, many=True)
+                return Response({
+                    "code": 200,
+                    "status": "success",
+                    "message": "viewing item categories",
+                    "data": serializer.data
+                }, status=status.HTTP_200_OK)
+
+            paginator = CustomPageNumberPagination()
             paginated_queryset = paginator.paginate_queryset(
                 cuisines, request=request, view=self)
             serializer = serializers.RestaurantItemCategorySerializer(

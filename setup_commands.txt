@@ -1,4 +1,21 @@
 ===============================================================================
+SUMMARY QUICK EXECUTION COMMANDS (Development / Testing)
+===============================================================================
+python manage.py migrate
+python manage.py bootstrap_auth
+python manage.py bootstrap_admin
+python manage.py seed_accounts --staff 50
+python manage.py seed_demo --months 6
+python manage.py seed_restaurants
+
+===========================
+Other Essential commands
+============================
+source env/Scripts/activate
+celery -A config.celery worker --pool=solo -l info
+celery -A config beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+
+===============================================================================
                GREGORIAN CLUB MANAGEMENT SYSTEM - SYSTEM SETUP COMMANDS
 ===============================================================================
 
@@ -41,13 +58,3 @@ Description:
     Populates full testing datasets for club members and departmental staff.
     - Active Members (50): Creates member1 .. member50 (password 'member1234'), binds them to the club_member group, and populates full profile relations (financial basics, contact numbers, addresses, spouses, companions, emergency contacts, professions, documents).
     - Active Staff (50): Creates staff1 .. staff50 (password 'staff1234'), generates StaffProfile records, and distributes users evenly across the 10 departmental section groups.
-
-===============================================================================
-SUMMARY QUICK EXECUTION COMMANDS (Development / Testing)
-===============================================================================
-python manage.py migrate
-python manage.py bootstrap_auth
-python manage.py bootstrap_admin
-python manage.py seed_accounts --staff 50
-python manage.py seed_demo --months 6
-python manage.py seed_restaurants
