@@ -260,9 +260,9 @@ class AccountLoginLogoutView(APIView):
                 {'code': status.HTTP_200_OK,
                  'status': "success",
                  'message': "Logout successful", 'detail': "Logout successful"}, status=status.HTTP_200_OK)
-            # Delete the 'auth_token' cookie
-            response.delete_cookie(settings.SIMPLE_JWT["AUTH_COOKIE"])
-            response.delete_cookie(settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"])
+            # Delete the 'auth_token' and refresh cookies with root path
+            response.delete_cookie(settings.SIMPLE_JWT["AUTH_COOKIE"], path="/")
+            response.delete_cookie(settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"], path="/")
 
             # Add headers to prevent caching
             response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
@@ -1821,24 +1821,66 @@ class GetUserPermissionsView(APIView):
                     if member_profile else None),
             }
 
+            GROUP_DISPLAY_NAMES = {
+                "super_admin": "Super Admin",
+                "executive_admin": "Executive Admin",
+                "member_services": "Member Services",
+                "finance_accounts": "Finance & Accounts",
+                "restaurant_kitchen": "Restaurant & Kitchen",
+                "outlet_operations": "Outlet Operations",
+                "facility_sports": "Facility & Sports",
+                "events_marketing": "Events & Marketing",
+                "security_gate": "Security & Gate",
+                "hr_payroll": "HR & Payroll",
+                "supply_procurement": "Supply & Procurement",
+                "club_member": "Club Member",
+            }
+
+            raw_first = (user.first_name or "").strip()
+            raw_last = (user.last_name or "").strip()
+            computed_full_name = f"{raw_first} {raw_last}".strip()
+            if not computed_full_name and member_block.get("member_name"):
+                computed_full_name = member_block["member_name"]
+            if not computed_full_name and user.is_superuser:
+                computed_full_name = "Super Admin"
+            if not computed_full_name:
+                computed_full_name = user.username
+
             for assign_group in data:
+                group_list = []
+                group_display_titles = []
+                for group in assign_group.group.all():
+                    dname = GROUP_DISPLAY_NAMES.get(group.name, group.name.replace("_", " ").title())
+                    group_list.append({
+                        "group_id": group.id,
+                        "group_name": group.name,
+                        "display_name": dname,
+                    })
+                    group_display_titles.append(dname)
+
+                primary_role = "Super Admin" if user.is_superuser else None
+                if not primary_role and group_display_titles:
+                    primary_role = group_display_titles[0]
+                if not primary_role:
+                    primary_role = "Club Member" if user.role == "MEMBER" else "Club Staff"
+
                 user_info = {
                     "user_id": assign_group.user.id if assign_group.user else None,
                     "username": assign_group.user.username if assign_group.user else "No User",
+                    "first_name": raw_first or computed_full_name.split()[0] if computed_full_name else user.username,
+                    "last_name": raw_last,
+                    "full_name": computed_full_name,
+                    "email": user.email or "",
                     "role": user.role,
+                    "role_name": primary_role,
                     "is_admin": user.is_superuser,
                     "is_staff": user.is_staff,
                     "must_change_password": user.must_change_password,
                     **member_block,
-                    "groups": [],
+                    "groups": group_list,
                     "permissions": []
                 }
                 for group in assign_group.group.all():
-                    group_info = {
-                        "group_id": group.id,
-                        "group_name": group.name,
-                    }
-                    user_info["groups"].append(group_info)
                     all_permissions = [{
                         "permission_id": perm.id, "permission_name": perm.name}
                         for perm in group.permission.all()]
@@ -1853,10 +1895,24 @@ class GetUserPermissionsView(APIView):
             )
             if not users_data:
                 member_profile = getattr(user, "member_profile", None)
+                group_list = []
+                primary_role = "Super Admin" if user.is_superuser else ("Club Member" if user.role == "MEMBER" else "Club Staff")
+                if user.role == "MEMBER":
+                    member_group = GroupModel.objects.filter(name="club_member").prefetch_related("permission").first()
+                    if member_group:
+                        dname = GROUP_DISPLAY_NAMES.get(member_group.name, "Club Member")
+                        group_list.append({"group_id": member_group.id, "group_name": member_group.name, "display_name": dname})
+                        primary_role = dname
+
                 user_info = {
                     "user_id":  user.id,
                     "username": user.username,
+                    "first_name": raw_first or computed_full_name.split()[0] if computed_full_name else user.username,
+                    "last_name": raw_last,
+                    "full_name": computed_full_name,
+                    "email": user.email or "",
                     "role": user.role,
+                    "role_name": primary_role,
                     "is_admin": user.is_superuser,
                     "is_staff": user.is_staff,
                     "must_change_password": user.must_change_password,
@@ -1866,13 +1922,12 @@ class GetUserPermissionsView(APIView):
                     "member_name": (
                         f"{member_profile.first_name} {member_profile.last_name}".strip()
                         if member_profile else None),
-                    "groups": [],
+                    "groups": group_list,
                     "permissions": []
                 }
-                if user.role == "MEMBER":
+                if user.role == "MEMBER" and group_list:
                     member_group = GroupModel.objects.filter(name="club_member").prefetch_related("permission").first()
                     if member_group:
-                        user_info["groups"].append({"group_id": member_group.id, "group_name": member_group.name})
                         user_info["permissions"] = [{"permission_id": perm.id, "permission_name": perm.name} for perm in member_group.permission.all()]
                 users_data.append(user_info)
 

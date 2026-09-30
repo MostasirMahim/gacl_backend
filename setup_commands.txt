@@ -67,7 +67,7 @@ Command:
     python manage.py seed_restaurants
 
 Description:
-    Seeds the primary dining venue ("Restan"), layout sections, dishes, and reviews.
+    Seeds the primary dining venue ("Restan") with cover banner, profile DP image, layout sections, dishes, and reviews.
 
 -------------------------------------------------------------------------------
 SEQUENCE 5: SPECIALTY OUTLETS SEEDING (BARS, TEA & CIGAR LOUNGES)

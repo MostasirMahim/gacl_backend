@@ -292,7 +292,8 @@ class Command(DemoCommand):
             rest, _ = Restaurant.objects.get_or_create(
                 name=rname,
                 defaults={"cuisine_type": cuisine, "restaurant_type": rcat,
-                          "capacity": cap, "status": "open"})
+                          "capacity": cap, "status": "open",
+                          "dp_image": "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop&q=80"})
             # short code keeps globally-unique item names distinct per restaurant
             rcode = ["MR", "RG", "CB"][ridx] if ridx < 3 else f"R{ridx}"
             menu = [

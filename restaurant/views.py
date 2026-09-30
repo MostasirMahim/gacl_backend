@@ -1,4 +1,5 @@
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
@@ -1109,6 +1110,8 @@ class RestaurantUploadExcelView(APIView):
 # single item detail + update/delete (4.2).
 # ---------------------------------------------------------------
 class RestaurantDetailView(APIView):
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
     def get_permissions(self):
         if self.request.method in ("PATCH", "PUT", "DELETE"):
             return [RestaurantManagementPermission()]
@@ -1143,6 +1146,7 @@ class RestaurantDetailView(APIView):
             serializer.save()
             try:
                 cache.delete_pattern("restaurants::*")
+                cache.delete_pattern("public_restaurants_list::*")
                 cache.delete_pattern("restaurant_public_menu::*")
             except Exception:
                 pass
@@ -1168,6 +1172,95 @@ class RestaurantDetailView(APIView):
             pass
         return Response({"code": 200, "status": "success",
                           "message": "Restaurant deactivated"})
+
+
+class RestaurantCoverUploadView(APIView):
+    """Dedicated endpoint to upload Restaurant banner/cover photo."""
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_permissions(self):
+        return [RestaurantManagementPermission()]
+
+    def post(self, request, pk):
+        try:
+            restaurant = Restaurant.objects.get(id=pk, is_active=True)
+        except Restaurant.DoesNotExist:
+            return Response({"code": 404, "status": "failed", "message": "Restaurant not found"},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        file_obj = request.FILES.get("cover_image") or request.FILES.get("banner_bg_image") or request.FILES.get("file")
+        if not file_obj:
+            return Response({"code": 400, "status": "failed", "message": "No cover image file provided. Please send 'cover_image' or 'banner_bg_image' in form-data."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if file_obj.size > 10 * 1024 * 1024:
+            return Response({"code": 400, "status": "failed", "message": "Cover image exceeds max size limit (10MB)."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        restaurant.banner_bg_image = file_obj
+        restaurant.save(update_fields=["banner_bg_image", "updated_at"])
+
+        try:
+            cache.delete_pattern("restaurants::*")
+            cache.delete_pattern("public_restaurants_list::*")
+            cache.delete_pattern("restaurant_public_menu::*")
+        except Exception:
+            pass
+
+        return Response({
+            "code": 200,
+            "status": "success",
+            "message": "Cover image uploaded successfully",
+            "data": {
+                "id": restaurant.id,
+                "banner_bg_image": restaurant.banner_bg_image.url if restaurant.banner_bg_image else None
+            }
+        }, status=status.HTTP_200_OK)
+
+
+class RestaurantDpUploadView(APIView):
+    """Dedicated endpoint to upload Restaurant DP / avatar photo."""
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_permissions(self):
+        return [RestaurantManagementPermission()]
+
+    def post(self, request, pk):
+        try:
+            restaurant = Restaurant.objects.get(id=pk, is_active=True)
+        except Restaurant.DoesNotExist:
+            return Response({"code": 404, "status": "failed", "message": "Restaurant not found"},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        file_obj = request.FILES.get("dp_image") or request.FILES.get("logo") or request.FILES.get("file")
+        if not file_obj:
+            return Response({"code": 400, "status": "failed", "message": "No DP image file provided. Please send 'dp_image' or 'logo' in form-data."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if file_obj.size > 5 * 1024 * 1024:
+            return Response({"code": 400, "status": "failed", "message": "DP image exceeds max size limit (5MB)."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        restaurant.dp_image = file_obj
+        restaurant.save(update_fields=["dp_image", "updated_at"])
+
+        try:
+            cache.delete_pattern("restaurants::*")
+            cache.delete_pattern("public_restaurants_list::*")
+            cache.delete_pattern("restaurant_public_menu::*")
+        except Exception:
+            pass
+
+        return Response({
+            "code": 200,
+            "status": "success",
+            "message": "Profile picture (DP) uploaded successfully",
+            "data": {
+                "id": restaurant.id,
+                "dp_image": restaurant.dp_image.url if restaurant.dp_image else None,
+                "logo": restaurant.dp_image.url if restaurant.dp_image else None
+            }
+        }, status=status.HTTP_200_OK)
 
 
 class RestaurantItemDetailView(APIView):
@@ -1442,9 +1535,14 @@ class RestaurantPublicListView(APIView):
             if cached_response:
                 return Response(cached_response, status=200)
 
+            from django.db.models import Avg, Count, Q
+
             paginator = CustomPageNumberPagination()
             restaurants = Restaurant.objects.select_related(
                 "cuisine_type", "restaurant_type"
+            ).annotate(
+                avg_rating=Avg('restaurant_item_restaurant__reviews__rating', filter=Q(restaurant_item_restaurant__reviews__is_active=True)),
+                review_count=Count('restaurant_item_restaurant__reviews', filter=Q(restaurant_item_restaurant__reviews__is_active=True), distinct=True)
             ).filter(is_active=True, status="open").order_by("-id")
             
             paginated_queryset = paginator.paginate_queryset(

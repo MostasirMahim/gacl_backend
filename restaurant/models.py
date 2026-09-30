@@ -55,6 +55,7 @@ class Restaurant(RestaurantBaseModel):
     # Dynamic layout and banner fields
     slug = models.SlugField(max_length=350, unique=True, blank=True, null=True)
     banner_bg_image = models.ImageField(upload_to="restaurant/banners/", blank=True, null=True)
+    dp_image = models.ImageField(upload_to="restaurant/dp/", blank=True, null=True)
     banner_title = models.CharField(max_length=300, blank=True, default="")
     banner_description = models.TextField(blank=True, default="")
     about_text = models.TextField(blank=True, default="")
@@ -71,6 +72,10 @@ class Restaurant(RestaurantBaseModel):
     # managers
     objects = models.Manager()
     active_objects = ActiveManager()
+
+    @property
+    def logo(self):
+        return self.dp_image
 
     def __str__(self):
         return self.name

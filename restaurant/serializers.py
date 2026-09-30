@@ -49,6 +49,7 @@ class RestaurantSerializer(serializers.Serializer):
     # Dynamic layout and banner fields
     slug = serializers.SlugField(required=False, allow_null=True)
     banner_bg_image = serializers.ImageField(required=False, allow_null=True)
+    dp_image = serializers.ImageField(required=False, allow_null=True)
     banner_title = serializers.CharField(required=False, allow_blank=True, default="")
     banner_description = serializers.CharField(required=False, allow_blank=True, default="")
     about_text = serializers.CharField(required=False, allow_blank=True, default="")
@@ -88,7 +89,7 @@ class RestaurantUpdateSerializer(serializers.ModelSerializer):
             "name", "description", "address", "city", "state", "postal_code",
             "phone", "operating_hours", "capacity", "status", "opening_time",
             "closing_time", "booking_fees_per_seat", "cuisine_type",
-            "restaurant_type", "slug", "banner_bg_image", "banner_title",
+            "restaurant_type", "slug", "banner_bg_image", "dp_image", "banner_title",
             "banner_description", "about_text", "meta_title", "meta_description",
             "delivery_banner_title", "delivery_banner_text", "reservation_banner_title",
             "reservation_banner_text", "reservation_banner_launch_menu", "reservation_banner_dinner_menu", "footer_config"]}
@@ -387,12 +388,34 @@ class GuestVerifyOtpSerializer(serializers.Serializer):
 class RestaurantPublicListSerializer(serializers.ModelSerializer):
     cuisine_type_name = serializers.CharField(source='cuisine_type.name', read_only=True)
     restaurant_type_name = serializers.CharField(source='restaurant_type.name', read_only=True)
+    dp_image = serializers.ImageField(required=False, allow_null=True)
+    logo = serializers.ImageField(source='dp_image', required=False, allow_null=True)
+    average_rating = serializers.SerializerMethodField()
+    total_reviews = serializers.SerializerMethodField()
 
     class Meta:
         model = Restaurant
         fields = [
             "id", "name", "slug", "description", "address", "city", "state",
             "operating_hours", "capacity", "status", "opening_time", "closing_time",
-            "banner_bg_image", "banner_title", "banner_description", "about_text",
-            "cuisine_type_name", "restaurant_type_name"
+            "banner_bg_image", "dp_image", "logo", "banner_title", "banner_description", "about_text",
+            "cuisine_type_name", "restaurant_type_name",
+            "average_rating", "total_reviews"
         ]
+
+    def get_average_rating(self, obj):
+        if hasattr(obj, 'avg_rating') and obj.avg_rating is not None:
+            return round(float(obj.avg_rating), 1)
+        from restaurant.models import RestaurantItemReview
+        from django.db.models import Avg
+        revs = RestaurantItemReview.objects.filter(item__restaurant=obj, is_active=True)
+        if revs.exists():
+            val = revs.aggregate(Avg('rating'))['rating__avg']
+            return round(float(val), 1) if val is not None else None
+        return None
+
+    def get_total_reviews(self, obj):
+        if hasattr(obj, 'review_count') and obj.review_count is not None:
+            return obj.review_count
+        from restaurant.models import RestaurantItemReview
+        return RestaurantItemReview.objects.filter(item__restaurant=obj, is_active=True).count()

@@ -149,6 +149,7 @@ class RestaurantTestimonialView(APIView):
             if serializer.is_valid():
                 serializer.save(restaurant=restaurant)
                 cache.delete_pattern("restaurant_public_menu::*")
+                cache.delete_pattern("public_restaurants_list::*")
                 return Response({
                     "code": 201,
                     "status": "success",
@@ -181,6 +182,7 @@ class RestaurantTestimonialDetailView(APIView):
             if serializer.is_valid():
                 serializer.save()
                 cache.delete_pattern("restaurant_public_menu::*")
+                cache.delete_pattern("public_restaurants_list::*")
                 return Response({
                     "code": 200,
                     "status": "success",
@@ -208,6 +210,7 @@ class RestaurantTestimonialDetailView(APIView):
             testimonial.is_active = False
             testimonial.save()
             cache.delete_pattern("restaurant_public_menu::*")
+            cache.delete_pattern("public_restaurants_list::*")
             return Response({
                 "code": 200,
                 "status": "success",
@@ -265,6 +268,7 @@ class RestaurantItemReviewListView(APIView):
                 serializer.save(item=item, member=None)
                 try:
                     cache.delete_pattern("restaurant_public_menu::*")
+                    cache.delete_pattern("public_restaurants_list::*")
                 except Exception:
                     pass
                 return Response({
@@ -303,6 +307,7 @@ class ItemReviewCreateView(APIView):
                 serializer.save(item=item, member=member)
                 try:
                     cache.delete_pattern("restaurant_public_menu::*")
+                    cache.delete_pattern("public_restaurants_list::*")
                 except Exception:
                     pass
                 return Response({
@@ -340,6 +345,7 @@ class RestaurantItemReviewDetailView(APIView):
                 serializer.save()
                 try:
                     cache.delete_pattern("restaurant_public_menu::*")
+                    cache.delete_pattern("public_restaurants_list::*")
                 except Exception:
                     pass
                 return Response({
@@ -370,6 +376,7 @@ class RestaurantItemReviewDetailView(APIView):
             review.save()
             try:
                 cache.delete_pattern("restaurant_public_menu::*")
+                cache.delete_pattern("public_restaurants_list::*")
             except Exception:
                 pass
             return Response({

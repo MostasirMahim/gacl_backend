@@ -45,6 +45,7 @@ class Command(BaseCommand):
             "cuisine_type": cuisine_type,
             "restaurant_type": restaurant_type,
             "banner_bg_image": "https://images.unsplash.com/photo-1497534446932-c925b458314e?w=1600&q=80",
+            "dp_image": "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop&q=80",
             "banner_title": "Restan Food Menu",
             "banner_description": "Savor our collection of gourmet dishes, sweet bakery delights, fresh catches from the ocean, and artisan beverages crafted to perfection.",
             "about_text": "Founded in 2018, Restan brings a refined twist to casual classic dining. We source our ingredients from certified local organic farms, and our secrets are prepared fresh daily by world-class chefs.",
