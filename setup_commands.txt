@@ -7,6 +7,7 @@ python manage.py bootstrap_admin
 python manage.py seed_accounts --staff 50
 python manage.py seed_demo --months 6
 python manage.py seed_restaurants
+python manage.py seed_outlets
 
 ===========================
 Other Essential commands
@@ -58,3 +59,28 @@ Description:
     Populates full testing datasets for club members and departmental staff.
     - Active Members (50): Creates member1 .. member50 (password 'member1234'), binds them to the club_member group, and populates full profile relations (financial basics, contact numbers, addresses, spouses, companions, emergency contacts, professions, documents).
     - Active Staff (50): Creates staff1 .. staff50 (password 'staff1234'), generates StaffProfile records, and distributes users evenly across the 10 departmental section groups.
+
+-------------------------------------------------------------------------------
+SEQUENCE 4: RESTAURANT & DINING SEEDING
+-------------------------------------------------------------------------------
+Command:
+    python manage.py seed_restaurants
+
+Description:
+    Seeds the primary dining venue ("Restan"), layout sections, dishes, and reviews.
+
+-------------------------------------------------------------------------------
+SEQUENCE 5: SPECIALTY OUTLETS SEEDING (BARS, TEA & CIGAR LOUNGES)
+-------------------------------------------------------------------------------
+Command:
+    python manage.py seed_outlets [--orders 25] [--flush]
+
+Description:
+    Populates full operational data for all specialty beverage and lounge venues:
+    - 5 Outlets: Sky Bar, Riverside Bar, Tea Lounge, Garden Tea House, Cigar Room.
+    - 16 Item Categories across bar, tea lounge, and cigar lounge domains.
+    - 25 Menu Items with pricing, unit definitions, and costs.
+    - 6 Physical Boundary Cross-Ordering Rules.
+    - 23 Raw Inventory Ledger Items with reorder level alerts.
+    - 14 Item Recipe Formulas for automated ingredient stock deductions.
+    - 25 Sample Orders across the lifecycle (preparing queue, ready, and billed).
